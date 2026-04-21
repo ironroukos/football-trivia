@@ -13,6 +13,11 @@ import LineupQuestion from '../components/questions/LineupQuestion';
 import Top5Question from '../components/questions/Top5Question';
 
 // ============================================================================
+// UTILITIES
+// ============================================================================
+const norm = (s) => (s || '').toLowerCase().trim().replace(/\s+/g, ' ');
+
+// ============================================================================
 // CATEGORY CONFIG
 // ============================================================================
 const CATEGORIES = [
@@ -25,6 +30,34 @@ const CATEGORIES = [
   { name: "Who's Missing",   multipliers: [3, 3],    bg: '#7BC142', textColor: '#f5ffe8' },
   { name: 'Top 5',           multipliers: [3, 3],    bg: '#4A7C28', textColor: '#f5ffe8' },
 ];
+
+// Sample questions data — fetch from Google Sheet in production
+const questions = {
+  'History': [
+    { type: 'text', q: 'What year did the first World Cup take place?', a: '1930', category: 'History', multiplier: 2 },
+  ],
+  'Geography': [
+    { type: 'text', q: 'Which country has won the most World Cups?', a: 'Brazil|Βραζιλία', category: 'Geography', multiplier: 2 },
+  ],
+  'Logo Quiz': [
+    { type: 'logo', q: 'Identify the club logo', imageUrl: '/logo-placeholder.png', a: 'Manchester United', category: 'Logo Quiz', multiplier: 2 },
+  ],
+  'Retro Transfers': [
+    { type: 'transfer', q: 'Who transferred?', year: '2003', from: 'Arsenal', to: 'Barcelona', a: 'Thierry Henry', category: 'Retro Transfers', multiplier: 2 },
+  ],
+  'Player ID': [
+    { type: 'careerTable', q: 'Identify by career', career: [['Barcelona', '2004-2005'], ['Arsenal', '2006-2012']], a: 'Cesc Fabregas', category: 'Player ID', multiplier: 2 },
+  ],
+  'Gossip': [
+    { type: 'imageText', q: 'What scandal happened here?', imageUrl: '/gossip-placeholder.png', a: 'Scandal', category: 'Gossip', multiplier: 2 },
+  ],
+  "Who's Missing": [
+    { type: 'lineup', q: 'Name the missing player', imageUrl: '/lineup.png', visiblePlayers: ['Player 1', 'Player 2'], missingPosition: 'Striker', a: 'Mystery Player', category: "Who's Missing", multiplier: 3 },
+  ],
+  'Top 5': [
+    { type: 'top5', q: 'Name 5 Ballon d\'Or winners', answers: ['Messi', 'Ronaldo', 'Pele', 'Maradona', 'Zidane'], category: 'Top 5', multiplier: 3 },
+  ],
+};
 
 async function verifyAnswer(sheetAnswer, userAnswer, questionContext = '', category = '', verifyLive = false) {
   try {
@@ -998,8 +1031,7 @@ function Top5Question({ question, onFinish, onAward, onResolved, activePowerUp }
               Σταμάτα (+{hasX2 ? 2 : 1} {hasX2 ? 'πόντοι' : 'πόντος'})
             </button>
             <button
-              onClick={() => {}}
-              className="body-font bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-bold"
+              className="body-font bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-bold cursor-pointer"
               title="Συνέχισε για όλες τις 5 — όλα ή τίποτα"
             >
               Συνέχισε (όλα ή τίποτα)
