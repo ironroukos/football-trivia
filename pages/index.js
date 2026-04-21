@@ -1,93 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Beer, Check, X, RotateCcw, Sparkles, Minus, Plus, Zap, HelpCircle, Trophy, AlertTriangle } from 'lucide-react';
-
-// ============================================================================
-// MOCK DATA — replace with Google Sheets fetch in production
-// ============================================================================
-const MOCK_QUESTIONS = {
-  History: [
-    { type: 'text', q: 'Ποια χώρα κέρδισε το πρώτο Παγκόσμιο Κύπελλο το 1930;', a: 'Ουρουγουάη|Uruguay' },
-    { type: 'text', q: "Ποιος σκόραρε το γκολ 'Hand of God';", a: 'Maradona|Μαραντόνα' },
-    { type: 'text', q: 'Σε ποιο έτος ξεκίνησε η Premier League;', a: '1992' },
-  ],
-  Geography: [
-    { type: 'text', q: 'Σε ποια πόλη βρίσκεται το Camp Nou;', a: 'Βαρκελώνη|Barcelona' },
-    { type: 'text', q: 'Το Wembley βρίσκεται σε ποια πόλη;', a: 'Λονδίνο|London' },
-    { type: 'text', q: 'Σε ποια χώρα παίζεται η Serie A;', a: 'Ιταλία|Italy' },
-  ],
-  'Logo Quiz': [
-    { type: 'logo', q: 'Ποιος σύλλογος;', a: 'Manchester United|Μάντσεστερ Γιουνάιτεντ', imageUrl: 'https://upload.wikimedia.org/wikipedia/en/7/7a/Manchester_United_FC_crest.svg' },
-    { type: 'logo', q: 'Ποιος σύλλογος;', a: 'Borussia Dortmund|Ντόρτμουντ|BVB', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/6/67/Borussia_Dortmund_logo.svg' },
-    { type: 'logo', q: 'Ποιος σύλλογος;', a: 'Juventus|Γιουβέντους', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/b/bc/Juventus_FC_2017_logo.svg' },
-  ],
-  'Retro Transfers': [
-    { type: 'transfer', from: 'Dortmund', to: 'Arsenal', year: '2006', a: 'Tomáš Rosický|Ρόσιτσκι|Rosicky' },
-    { type: 'transfer', from: 'Real Madrid', to: 'Chelsea', year: '2018', a: 'Thibaut Courtois|Κουρτουά|Courtois' },
-    { type: 'transfer', from: 'Liverpool', to: 'Barcelona', year: '2018', a: 'Philippe Coutinho|Κουτίνιο|Coutinho' },
-  ],
-  'Player ID': [
-    {
-      type: 'careerTable',
-      a: 'Jonathan Maidana|Μαιδάνα|Maidana',
-      career: [
-        ['Racing Club', '2010-2014'],
-        ['Manchester City', '2014-2017'],
-        ['Valencia (loan)', '2014-2015'],
-        ['Córdoba (loan)', '2015'],
-        ['Middlesbrough (loan)', '2015-2016'],
-        ['AEK Athens (loan)', '2016'],
-        ['Rayo Vallecano (loan)', '2016-2017'],
-        ['Hellas Verona (loan)', '2017'],
-        ['Hellas Verona', '2017-2018'],
-        ['River Plate', '2018-2024'],
-        ['Racing Club', '2024-'],
-      ],
-    },
-    {
-      type: 'careerTable',
-      a: 'Cristiano Ronaldo|Ρονάλντο',
-      career: [
-        ['Sporting CP', '2002-2003'],
-        ['Manchester United', '2003-2009'],
-        ['Real Madrid', '2009-2018'],
-        ['Juventus', '2018-2021'],
-        ['Manchester United', '2021-2022'],
-        ['Al-Nassr', '2023-'],
-      ],
-    },
-  ],
-  Gossip: [
-    { type: 'text', q: 'Με ποια τραγουδίστρια έκανε σχέση ο Gerard Piqué για 12 χρόνια;', a: 'Shakira|Σακίρα' },
-    { type: 'text', q: 'Ποιος παίκτης εμφανίστηκε γυμνός σε διαφήμιση για εσώρουχα Armani το 2008;', a: 'Cristiano Ronaldo|Ρονάλντο' },
-    { type: 'text', q: "Ποιος είπε την ατάκα 'I am the Special One' στην πρώτη του συνέντευξη στην Chelsea;", a: 'Mourinho|Μουρίνιο|José Mourinho' },
-    { type: 'text', q: 'Με ποια ηθοποιό είναι παντρεμένος ο David Beckham από το 1999;', a: 'Victoria|Victoria Beckham|Posh Spice' },
-    { type: 'text', q: 'Ποιος πασίγνωστος προπονητής έγινε viral με το "This is Anfield" moment και τη φιλοσοφία του heavy metal football;', a: 'Klopp|Κλοπ|Jürgen Klopp' },
-    { type: 'imageText', q: 'Ποιος παίκτης είναι στη φωτογραφία με τη σύζυγό του;', a: 'Messi|Μέσι', imageUrl: 'https://via.placeholder.com/400x300/EA7E1E/ffffff?text=Gossip+photo+1' },
-    { type: 'imageText', q: 'Ποιος ποδοσφαιριστής εμφανίζεται σε αυτή τη διαφήμιση;', a: 'Zidane|Ζιντάν', imageUrl: 'https://via.placeholder.com/400x300/EA7E1E/ffffff?text=Gossip+photo+2' },
-  ],
-  "Who's Missing": [
-    {
-      type: 'lineup',
-      q: 'Παναιτωλικός — Λεβαδειακός 0-0 (Super League 2024-25)',
-      a: 'Karo|Κάρο',
-      imageUrl: 'https://via.placeholder.com/400x500/22c55e/ffffff?text=Lineup+Image',
-      visiblePlayers: ['Belevonis', 'Bouzoukis', 'Apostolopoulos', 'Luis', 'Perez', 'Bakakis', 'Sielis', 'Pantelakis', 'Stajic', 'Chaves'],
-      missingPosition: 'Κέντρο άμυνας',
-    },
-    {
-      type: 'lineup',
-      q: 'Brazil 2002 World Cup Final',
-      a: 'Ronaldinho|Ροναλντίνιο',
-      imageUrl: 'https://via.placeholder.com/400x500/22c55e/ffffff?text=Brazil+2002',
-      visiblePlayers: ['Marcos', 'Cafu', 'Lúcio', 'Edmílson', 'Roberto Carlos', 'Gilberto Silva', 'Kléberson', 'Rivaldo', 'Ronaldo'],
-      missingPosition: 'Μέσος',
-    },
-  ],
-  'Top 5': [
-    { type: 'top5', q: 'Οι 5 παίκτες που χρησιμοποίησε περισσότερο ο Rafa Benitez στην καριέρα του', answers: ['Reina', 'Gerrard', 'Agger', 'Carragher', 'Xabi Alonso'] },
-    { type: 'top5', q: 'Οι 5 παίκτες με τα περισσότερα γκολ στην ιστορία του Champions League', answers: ['Cristiano Ronaldo', 'Messi', 'Lewandowski', 'Benzema', 'Raúl'] },
-  ],
-};
+import LandingPage from '../components/LandingPage';
+import CoinFlip from '../components/CoinFlip';
+import Tiebreaker from '../components/Tiebreaker';
+import FinishedScreen from '../components/FinishedScreen';
+import TextQuestion from '../components/questions/TextQuestion';
+import LogoQuestion from '../components/questions/LogoQuestion';
+import ImageTextQuestion from '../components/questions/ImageTextQuestion';
+import TransferQuestion from '../components/questions/TransferQuestion';
+import CareerTableQuestion from '../components/questions/CareerTableQuestion';
+import LineupQuestion from '../components/questions/LineupQuestion';
+import Top5Question from '../components/questions/Top5Question';
 
 // ============================================================================
 // CATEGORY CONFIG
