@@ -34,28 +34,36 @@ const CATEGORIES = [
 // Sample questions data — fetch from Google Sheet in production
 const questions = {
   'History': [
-    { type: 'text', q: 'What year did the first World Cup take place?', a: '1930', category: 'History', multiplier: 2 },
+    { type: 'text', q: 'What year did the first World Cup take place?', a: '1930', multiplier: 2 },
+    { type: 'text', q: 'Which country won the 2014 World Cup?', a: 'Germany', multiplier: 2 },
   ],
   'Geography': [
-    { type: 'text', q: 'Which country has won the most World Cups?', a: 'Brazil|Βραζιλία', category: 'Geography', multiplier: 2 },
+    { type: 'text', q: 'Which country has won the most World Cups?', a: 'Brazil|Βραζιλία', multiplier: 2 },
+    { type: 'text', q: 'What is the capital of Spain?', a: 'Madrid', multiplier: 2 },
   ],
   'Logo Quiz': [
-    { type: 'logo', q: 'Identify the club logo', imageUrl: '/logo-placeholder.png', a: 'Manchester United', category: 'Logo Quiz', multiplier: 2 },
+    { type: 'logo', q: 'Identify the club logo', imageUrl: '/logo-placeholder.png', a: 'Manchester United', multiplier: 2 },
+    { type: 'logo', q: 'What club is this?', imageUrl: '/logo2.png', a: 'Barcelona', multiplier: 2 },
   ],
   'Retro Transfers': [
-    { type: 'transfer', q: 'Who transferred?', year: '2003', from: 'Arsenal', to: 'Barcelona', a: 'Thierry Henry', category: 'Retro Transfers', multiplier: 2 },
+    { type: 'transfer', q: 'Who transferred?', year: '2003', from: 'Arsenal', to: 'Barcelona', a: 'Thierry Henry', multiplier: 2 },
+    { type: 'transfer', q: 'Who moved?', year: '2009', from: 'Manchester United', to: 'Real Madrid', a: 'Cristiano Ronaldo', multiplier: 2 },
   ],
   'Player ID': [
-    { type: 'careerTable', q: 'Identify by career', career: [['Barcelona', '2004-2005'], ['Arsenal', '2006-2012']], a: 'Cesc Fabregas', category: 'Player ID', multiplier: 2 },
+    { type: 'careerTable', q: 'Identify by career', career: [['Barcelona', '2004-2005'], ['Arsenal', '2006-2012']], a: 'Cesc Fabregas', multiplier: 2 },
+    { type: 'careerTable', q: 'Who is this player?', career: [['Manchester United', '2003-2009'], ['Real Madrid', '2009-2018']], a: 'Cristiano Ronaldo', multiplier: 2 },
   ],
   'Gossip': [
-    { type: 'imageText', q: 'What scandal happened here?', imageUrl: '/gossip-placeholder.png', a: 'Scandal', category: 'Gossip', multiplier: 2 },
+    { type: 'imageText', q: 'What scandal happened here?', imageUrl: '/gossip-placeholder.png', a: 'Scandal', multiplier: 2 },
+    { type: 'imageText', q: 'Name this player from the image', imageUrl: '/player.png', a: 'Unknown', multiplier: 2 },
   ],
   "Who's Missing": [
-    { type: 'lineup', q: 'Name the missing player', imageUrl: '/lineup.png', visiblePlayers: ['Player 1', 'Player 2'], missingPosition: 'Striker', a: 'Mystery Player', category: "Who's Missing", multiplier: 3 },
+    { type: 'lineup', q: 'Name the missing player', imageUrl: '/lineup.png', visiblePlayers: ['Player 1', 'Player 2'], missingPosition: 'Striker', a: 'Mystery Player', multiplier: 3 },
+    { type: 'lineup', q: 'Who should be in this position?', imageUrl: '/lineup2.png', visiblePlayers: ['Keeper', 'Defender'], missingPosition: 'Midfielder', a: 'Someone', multiplier: 3 },
   ],
   'Top 5': [
-    { type: 'top5', q: 'Name 5 Ballon d\'Or winners', answers: ['Messi', 'Ronaldo', 'Pele', 'Maradona', 'Zidane'], category: 'Top 5', multiplier: 3 },
+    { type: 'top5', q: 'Name 5 Ballon d\'Or winners', answers: ['Messi', 'Ronaldo', 'Pele', 'Maradona', 'Zidane'], multiplier: 3 },
+    { type: 'top5', q: 'Name 5 countries that won the World Cup', answers: ['Brazil', 'Germany', 'France', 'Italy', 'Argentina'], multiplier: 3 },
   ],
 };
 
@@ -135,17 +143,17 @@ export default function FootballTrivia() {
   }, [usedQuestions, phase, scores, totalSlots]);
 
   const openQuestion = (category, multiplier, slotIndex) => {
-  const key = `${category}-${slotIndex}`;
-  if (usedQuestions[key]) return;
+    const key = `${category}-${slotIndex}`;
+    if (usedQuestions[key]) return;
 
-  const pool = questions[category] || [];
-  if (pool.length === 0) return;
+    const pool = questions[category] || [];
+    if (pool.length === 0) return;
 
-  const question = pool[Math.floor(Math.random() * pool.length)];
-  if (!question) return;
+    const question = pool[Math.floor(Math.random() * pool.length)];
+    if (!question) return;
 
-  setActiveQuestion({ ...question, category, multiplier, slotKey: key });
-};
+    setActiveQuestion({ ...question, multiplier, slotKey: key });
+  };
 
   const handleUsePowerUp = (type) => {
     if (!powerUps[turn][type]) return; // already used
