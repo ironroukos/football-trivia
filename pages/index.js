@@ -4,8 +4,27 @@ import { Beer, Check, X, RotateCcw, Sparkles, Minus, Plus, HelpCircle, Trophy, A
 // ============================================================================
 // UTILITIES
 // ============================================================================
-const norm = (s) => (s || '').toLowerCase().trim().replace(/\s+/g, ' ');
-
+const greekToLatin = {
+  'α':'a','β':'b','γ':'g','δ':'d','ε':'e','ζ':'z','η':'i',
+  'θ':'th','ι':'i','κ':'k','λ':'l','μ':'m','ν':'n','ξ':'x',
+  'ο':'o','π':'p','ρ':'r','σ':'s','ς':'s','τ':'t','υ':'y',
+  'φ':'f','χ':'ch','ψ':'ps','ω':'o',
+  'Α':'a','Β':'b','Γ':'g','Δ':'d','Ε':'e','Ζ':'z','Η':'i',
+  'Θ':'th','Ι':'i','Κ':'k','Λ':'l','Μ':'m','Ν':'n','Ξ':'x',
+  'Ο':'o','Π':'p','Ρ':'r','Σ':'s','Τ':'t','Υ':'y',
+  'Φ':'f','Χ':'ch','Ψ':'ps','Ω':'o',
+};
+ 
+function normalize(str) {
+  if (!str) return '';
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')       // Raúl → Raul
+    .toLowerCase()
+    .trim()
+    .split('').map(c => greekToLatin[c] || c).join('')  // Greek → Latin
+    .replace(/\s+/g, ' ');
+}
 // ============================================================================
 // CATEGORY CONFIG
 // ============================================================================
@@ -15,7 +34,7 @@ const CATEGORIES = [
   { name: 'Logo Quiz',       multipliers: [2, 2],    bg: '#C8102E', textColor: '#ffffff' },
   { name: 'Retro Transfers', multipliers: [2, 2],    bg: '#1B4E7C', textColor: '#ffffff' },
   { name: 'Player ID',       multipliers: [2, 2],    bg: '#7B3FBF', textColor: '#ffffff' },
-  { name: 'Gossip',          multipliers: [2, 2],    bg: '#EA7E1E', textColor: '#ffffff' },
+  { name: 'Club Combo',      multipliers: [2, 2],    bg: '#EA7E1E', textColor: '#ffffff' },
   { name: "Who's Missing",   multipliers: [3, 3],    bg: '#7BC142', textColor: '#f5ffe8' },
   { name: 'Top 5',           multipliers: [3, 3],    bg: '#4A7C28', textColor: '#f5ffe8' },
 ];
@@ -37,9 +56,9 @@ async function verifyAnswer(sheetAnswer, userAnswer, questionContext = '', categ
       note: data.flagOutdated ? `⚠️ ${data.note}` : data.note,
     };
   } catch {
-    const accepted = sheetAnswer.split('|').map((s) => norm(s));
+    const accepted = sheetAnswer.split('|').map((s) => normalize(s));
     return {
-      correct: accepted.some((a) => a === norm(userAnswer)),
+      correct: accepted.some((a) => a === normalize(userAnswer)),
       canonical: sheetAnswer.split('|')[0],
       note: 'Offline check',
     };
@@ -733,259 +752,406 @@ function CareerTableQuestion({ question, onFinish, onAward, onResolved, activePo
   );
 }
 
-function LineupQuestion({ question, onFinish, onAward, onResolved, activePowerUp }) {
-  return (
-    <>
-      <p className="body-font text-lg text-stone-800 mb-3 text-center">{question.q}</p>
-      <div className="bg-green-700 rounded-xl p-3 mb-3 relative overflow-hidden">
-        {question.imageUrl && (
-          <img src={question.imageUrl} alt="Lineup" className="w-full rounded-lg mb-2" onError={(e) => { e.target.style.display = 'none'; }} />
-        )}
-        <div className="grid grid-cols-2 gap-1 text-white body-font text-sm">
-          {(question.visiblePlayers || []).map((p, i) => (
-            <div key={i} className="bg-blue-900/60 rounded px-2 py-1 text-center">{p}</div>
-          ))}
-          <div className="bg-red-600/80 rounded px-2 py-1 text-center font-bold col-span-2 border-2 border-dashed border-white">
-            ? {question.missingPosition}
-          </div>
-        </div>
-      </div>
-      <p className="body-font text-stone-600 text-center mb-3">Ποιος παίκτης λείπει;</p>
-      <AnswerInput question={question} onFinish={onFinish} onAward={onAward} onResolved={onResolved} activePowerUp={activePowerUp} />
-    </>
-  );
-}
-
-// ============================================================================
-// TOP 5 QUESTION — FIX #5: "Continue" button now works
-// ============================================================================
-function Top5Question({ question, onFinish, onAward, onResolved, activePowerUp }) {
-  const [found, setFound] = useState(Array(question.answers.length).fill(null));
-  const [strikes, setStrikes] = useState(0);
+function WhosMissingQuestion({ question, onAward, onSkip, multiplier, activePowerUp, onUsePowerUp }) {
   const [input, setInput] = useState('');
+  const [result, setResult] = useState(null); // null | 'correct' | 'wrong'
   const [verifying, setVerifying] = useState(false);
-  const [lastResult, setLastResult] = useState(null);
-  const [done, setDone] = useState(false);
-  const [stoppedAt4, setStoppedAt4] = useState(false);
-  // FIX #5: track whether the player chose to continue past 4
-  const [continuedPast4, setContinuedPast4] = useState(false);
-  const MAX_STRIKES = 1;
-
-  const foundCount = found.filter(Boolean).length;
-  // FIX #6: x2 is handled in parent's awardPoints, so Top5 just passes base multiplier
-  const baseMultiplier = question.multiplier;
-
-  const checkAnswer = async () => {
-    if (!input.trim() || verifying || done) return;
+  const [hint, setHint] = useState(null);
+ 
+  async function handleSubmit() {
+    if (verifying || result) return;
     setVerifying(true);
-
-    const userNorm = norm(input);
-    let matchedIdx = -1;
-    question.answers.forEach((ans, i) => {
-      if (found[i]) return;
-      const ansNorm = norm(ans);
-      if (ansNorm === userNorm || (ansNorm.length > 3 && (ansNorm.includes(userNorm) || userNorm.includes(ansNorm)))) {
-        matchedIdx = i;
-      }
-    });
-
-    await new Promise((r) => setTimeout(r, 300));
-
-    if (matchedIdx >= 0) {
-      const nextFound = [...found];
-      nextFound[matchedIdx] = question.answers[matchedIdx];
-      setFound(nextFound);
-      setLastResult('correct');
-      if (nextFound.every(Boolean)) {
-        // All 5 found — full points
-        setDone(true);
-        if (onResolved) onResolved();
-        onAward(baseMultiplier);
-      }
-    } else {
-      const nextStrikes = strikes + 1;
-      setStrikes(nextStrikes);
-      setLastResult('wrong');
-      if (nextStrikes >= MAX_STRIKES) {
-        setDone(true);
-        if (onResolved) onResolved();
-        // If player had 4+ before the strike, award consolation (1 pt, x2 applied in parent)
-        if (found.filter(Boolean).length >= 4) {
-          onAward(1);
-        }
-        // Fewer than 4 — no award
-      }
+ 
+    // Local normalize check first
+    const normInput = normalize(input);
+    const acceptedAnswers = question.answer.split('|').map(normalize);
+ 
+    if (acceptedAnswers.includes(normInput)) {
+      setResult('correct');
+      setVerifying(false);
+      onAward(multiplier);
+      return;
     }
-    setInput('');
+ 
+    // Claude verify
+    try {
+      const res = await fetch('/api/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: question.question,
+          sheetAnswer: question.answer,
+          userAnswer: input,
+        }),
+      });
+      const data = await res.json();
+      if (data.correct) {
+        setResult('correct');
+        onAward(multiplier);
+      } else {
+        setResult('wrong');
+        onAward(0);
+      }
+    } catch {
+      setResult('wrong');
+      onAward(0);
+    }
     setVerifying(false);
-    setTimeout(() => setLastResult(null), 1000);
-  };
-
-  const stopAt4 = () => {
-    setStoppedAt4(true);
-    setDone(true);
-    if (onResolved) onResolved();
-    onAward(1); // consolation — x2 applied in parent if armed
-  };
-
-  // FIX #5: "Continue" just hides the decision panel so the player can keep typing
-  const keepGoing = () => {
-    setContinuedPast4(true);
-  };
-
-  const surrender = () => {
-    setDone(true);
-    if (onResolved) onResolved();
-    // No points awarded on surrender
-  };
-
-  if (done) {
-    const allFound = found.every(Boolean);
-    return (
-      <div>
-        <div className={`rounded-xl p-4 mb-3 ${allFound ? 'bg-green-100 border-2 border-green-600' : foundCount >= 4 ? 'bg-amber-100 border-2 border-amber-600' : 'bg-red-100 border-2 border-red-600'}`}>
-          <div className="flex items-center gap-2 mb-2">
-            {allFound
-              ? <><Trophy size={28} className="text-green-700" /><span className="handwritten text-2xl text-green-700 font-bold">Τέλεια! +{baseMultiplier} πόντοι</span></>
-              : foundCount >= 4
-              ? <><Trophy size={28} className="text-amber-600" /><span className="handwritten text-2xl text-amber-700 font-bold">{stoppedAt4 ? 'Σταμάτησες στις 4' : 'Καλή προσπάθεια'} — +1 πόντος</span></>
-              : <><AlertTriangle size={28} className="text-red-700" /><span className="handwritten text-2xl text-red-700 font-bold">Τέλος — 0 πόντοι</span></>
-            }
-          </div>
-          <div className="body-font text-stone-700 mt-2">
-            <div className="font-bold mb-1">Οι σωστές απαντήσεις:</div>
-            <ol className="list-decimal list-inside space-y-0.5">
-              {question.answers.map((a, i) => (
-                <li key={i} className={found[i] ? 'text-green-700 font-bold' : 'text-stone-500'}>{a}</li>
-              ))}
-            </ol>
-          </div>
-        </div>
-        <button onClick={onFinish} className="body-font w-full bg-stone-800 text-white py-2 rounded-xl hover:bg-stone-700">
-          Σειρά επόμενης ομάδας →
-        </button>
-      </div>
-    );
   }
-
-  // FIX #5: Show stop-or-continue panel only when at exactly 4 AND player hasn't already chosen to continue
-  const showStopOption = foundCount === 4 && strikes === 0 && !continuedPast4;
-
+ 
+  function use5050() {
+    if (!onUsePowerUp || activePowerUp !== '5050') return;
+    // For Who's Missing, 50/50 reveals first letter as hint
+    setHint(`Αρχικό: ${question.answer.split('|')[0][0].toUpperCase()}`);
+    onUsePowerUp();
+  }
+ 
   return (
-    <>
-      <p className="body-font text-lg text-stone-800 mb-3 leading-relaxed">{question.q}</p>
-
-      <div className="bg-green-600 rounded-xl p-3 mb-3 space-y-2">
-        {question.answers.map((_, i) => (
-          <div key={i} className={`rounded-full px-4 py-2 flex items-center gap-3 transition ${found[i] ? 'bg-green-800' : 'bg-green-500'}`}>
-            <span className="bg-white text-green-700 rounded-full w-7 h-7 flex items-center justify-center body-font font-bold text-sm flex-shrink-0">{i + 1}</span>
-            <span className="handwritten text-xl text-white font-bold">{found[i] || '—'}</span>
-          </div>
-        ))}
-        <div className="flex items-center gap-2 pt-2 border-t border-green-700">
-          <span className="body-font text-white text-sm">Λάθος:</span>
-          {Array.from({ length: MAX_STRIKES }).map((_, i) => (
-            <div key={i} className={`w-7 h-7 rounded-full flex items-center justify-center ${i < strikes ? 'bg-red-600' : 'bg-white/30'}`}>
-              {i < strikes && <X size={16} className="text-white" strokeWidth={3} />}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {showStopOption && (
-        <div className="bg-amber-100 border-2 border-amber-500 rounded-xl p-3 mb-3">
-          <p className="body-font text-amber-900 text-center font-bold mb-2">
-            Βρήκες 4 στις {question.answers.length}! Τι κάνεις;
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            <button onClick={stopAt4} className="body-font bg-amber-500 hover:bg-amber-600 text-white py-2 rounded-lg font-bold">
-              Σταμάτα (+1 πόντος)
-            </button>
-            {/* FIX #5: onClick now calls keepGoing() */}
-            <button onClick={keepGoing} className="body-font bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-bold">
-              Συνέχισε (5/5 = +{baseMultiplier})
-            </button>
-          </div>
-          <p className="body-font text-amber-800 text-xs text-center mt-2">
-            1 λάθος μετά το «Συνέχισε» = 0 πόντοι
-          </p>
-        </div>
+    <div className="space-y-3">
+      {/* Image */}
+      {question.image_url && (
+        <img
+          src={question.image_url}
+          alt="Who's missing?"
+          className="w-full rounded-xl object-cover max-h-64"
+        />
       )}
-
-      {lastResult === 'correct' && <div className="text-center mb-2 handwritten text-xl text-green-700 font-bold">✓ Σωστό!</div>}
-      {lastResult === 'wrong' && <div className="text-center mb-2 handwritten text-xl text-red-700 font-bold">✗ Λάθος</div>}
-
-      <input
-        type="text"
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && checkAnswer()}
-        disabled={verifying}
-        placeholder="Γράψε μία απάντηση…"
-        className="body-font w-full border-2 border-stone-800 rounded-xl px-4 py-3 text-lg mb-3 bg-white focus:outline-none focus:ring-4 focus:ring-amber-300"
-        autoFocus
-      />
-      <div className="flex gap-2">
-        <button onClick={checkAnswer} disabled={verifying || !input.trim()} className="body-font flex-1 bg-stone-800 text-white py-2 rounded-xl hover:bg-stone-700 disabled:opacity-50">
-          {verifying ? 'Έλεγχος…' : 'Υποβολή'}
-        </button>
-        <button onClick={surrender} className="body-font px-4 bg-stone-500 text-white py-2 rounded-xl hover:bg-stone-600" title="Παραιτήσου — 0 πόντοι">
-          Παράδοση
-        </button>
-      </div>
-    </>
-  );
-}
-
-// ============================================================================
-// LANDING PAGE
-// ============================================================================
-function LandingPage({ sharedStyle, teamNames, onStart }) {
-  // FIX #8: Seed from props but don't break if props change
-  const [team1, setTeam1] = useState('');
-  const [team2, setTeam2] = useState('');
-
-  const canStart = team1.trim() && team2.trim() && team1.trim() !== team2.trim();
-
-  const handleStart = () => {
-    if (!canStart) return;
-    onStart([team1.trim(), team2.trim()]);
-  };
-
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-50 p-4 flex flex-col items-center justify-center" style={{ fontFamily: "'Patrick Hand', cursive" }}>
-      <style>{sharedStyle}</style>
-      <div className="max-w-md w-full">
-        <header className="flex flex-col items-center gap-2 mb-6">
-          <Beer size={64} className="text-amber-500" strokeWidth={2.5} />
-          <h1 className="handwritten text-5xl font-bold text-stone-800 text-center leading-tight">FOOTBALL TRIVIA</h1>
-        </header>
-        <div className="bg-red-600 rounded-2xl py-3 px-4 mb-8 transform -rotate-1 card-shadow">
-          <p className="handwritten text-2xl text-white text-center italic font-semibold">Put some strategy on your game!</p>
-        </div>
-        <div className="bg-white rounded-2xl p-5 card-shadow space-y-4">
-          <h2 className="handwritten text-2xl text-stone-800 font-bold text-center">Ποιοι παίζουν;</h2>
-          <div>
-            <label className="body-font text-red-600 font-bold text-sm mb-1 block">🔴 Ομάδα 1</label>
-            <input type="text" value={team1} onChange={(e) => setTeam1(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleStart()} placeholder="π.χ. Κόκκινοι λύκοι" maxLength={20} className="body-font w-full border-2 border-red-300 focus:border-red-600 rounded-xl px-4 py-3 text-lg bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-300 transition" autoFocus />
-          </div>
-          <div>
-            <label className="body-font text-blue-700 font-bold text-sm mb-1 block">🔵 Ομάδα 2</label>
-            <input type="text" value={team2} onChange={(e) => setTeam2(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleStart()} placeholder="π.χ. Μπλε κεραυνοί" maxLength={20} className="body-font w-full border-2 border-blue-300 focus:border-blue-600 rounded-xl px-4 py-3 text-lg bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-300 transition" />
-          </div>
-          {team1.trim() && team2.trim() && team1.trim() === team2.trim() && (
-            <p className="body-font text-sm text-amber-700 text-center">Οι ομάδες πρέπει να έχουν διαφορετικά ονόματα</p>
-          )}
-          <button onClick={handleStart} disabled={!canStart} className="body-font w-full bg-stone-800 text-white py-4 rounded-xl text-xl font-bold hover:bg-stone-700 disabled:opacity-40 disabled:cursor-not-allowed transition">
-            Ξεκίνα το παιχνίδι →
+ 
+      {/* Question text */}
+      <p className="text-center font-semibold text-gray-700">{question.question}</p>
+ 
+      {/* Hint from 50/50 */}
+      {hint && (
+        <p className="text-center text-amber-600 font-bold">{hint}</p>
+      )}
+ 
+      {/* Result */}
+      {result === 'correct' && (
+        <div className="bg-green-100 border border-green-400 rounded-lg p-3 text-center">
+          <p className="text-green-700 font-bold">✓ Σωστό!</p>
+          <button onClick={onSkip} className="mt-2 bg-stone-700 text-white px-4 py-1 rounded-lg font-bold">
+            Επόμενο →
           </button>
         </div>
-        <p className="text-center mt-6 body-font text-stone-500 text-sm">Ένας γύρος = 16 ερωτήσεις · 2 βοήθειες ανά ομάδα</p>
-      </div>
+      )}
+ 
+      {result === 'wrong' && (
+        <div className="bg-red-100 border border-red-400 rounded-lg p-3 text-center">
+          <p className="text-red-700 font-bold">✗ Λάθος!</p>
+          <p className="text-sm text-gray-600">Σωστό: {question.answer.split('|')[0]}</p>
+          <button onClick={onSkip} className="mt-2 bg-stone-700 text-white px-4 py-1 rounded-lg font-bold">
+            Επόμενο →
+          </button>
+        </div>
+      )}
+ 
+      {!result && (
+        <div className="flex gap-2">
+          <input
+            className="flex-1 border-2 border-gray-300 rounded-lg p-2 focus:outline-none focus:border-blue-500"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+            placeholder="Ποιος λείπει;"
+            autoFocus
+            disabled={verifying}
+          />
+          <button
+            onClick={handleSubmit}
+            disabled={verifying}
+            className="bg-blue-600 text-white px-4 rounded-lg font-bold hover:bg-blue-700 disabled:opacity-50">
+            {verifying ? '...' : 'OK'}
+          </button>
+        </div>
+      )}
+ 
+      {/* 50/50 for this category gives a letter hint */}
+      {activePowerUp === '5050' && !result && !hint && (
+        <button onClick={use5050}
+          className="w-full text-xs text-amber-600 underline">
+          Χρησιμοποίησε 50/50 (αποκαλύπτει αρχικό γράμμα)
+        </button>
+      )}
     </div>
   );
 }
-
+// ============================================================================
+// TOP 5 QUESTION — FIX #5: "Continue" button now works
+// ============================================================================
+ 
+function Top5Question({ question, multiplier, onAward, onFinish }) {
+  const answers = (question.answer || '').split('|').map(a => a.trim());
+  const [revealed, setRevealed] = useState([]);   // indices of correct answers found
+  const [wrongAnswers, setWrongAnswers] = useState([]);  // list of wrong guesses (max 2)
+  const [input, setInput] = useState('');
+  const [done, setDone] = useState(false);
+  const [showStopDialog, setShowStopDialog] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+ 
+  async function handleSubmit() {
+    if (done || verifying || !input.trim()) return;
+    setVerifying(true);
+ 
+    const normInput = normalize(input);
+ 
+    // Check against all 5 answers
+    const matchIdx = answers.findIndex(
+      (a, i) => !revealed.includes(i) && normalize(a) === normInput
+    );
+ 
+    if (matchIdx !== -1) {
+      // CORRECT
+      const newRevealed = [...revealed, matchIdx];
+      setRevealed(newRevealed);
+      setInput('');
+      setVerifying(false);
+ 
+      if (newRevealed.length === 5) {
+        // All 5 found → full points
+        setDone(true);
+        onAward(multiplier);
+      } else if (newRevealed.length === 4) {
+        // 4 found → ask stop or continue
+        setShowStopDialog(true);
+      }
+    } else {
+      // WRONG
+      const newWrong = [...wrongAnswers, input.trim()];
+      setWrongAnswers(newWrong);
+      setInput('');
+      setVerifying(false);
+ 
+      if (newWrong.length >= 2) {
+        // 2nd wrong → lose
+        setDone(true);
+        onAward(0);
+      }
+      // 1st wrong → warning, continue playing
+    }
+  }
+ 
+  function handleStop() {
+    // Player chooses to stop at 4 → 1 point
+    setShowStopDialog(false);
+    setDone(true);
+    onAward(1);
+  }
+ 
+  function handleContinue() {
+    // Player chooses to go for 5th
+    setShowStopDialog(false);
+    // Game continues, if they get wrong next → 0pts (handled above)
+  }
+ 
+  return (
+    <div className="space-y-2">
+ 
+      {/* WRONG ANSWER SLOT — top, red, shows last wrong guess */}
+      <div className={`p-2 rounded-lg text-center font-bold text-sm transition-all
+        ${wrongAnswers.length > 0
+          ? 'bg-red-500 text-white'
+          : 'bg-gray-100 text-gray-300 border-2 border-dashed border-red-200'}`}>
+        {wrongAnswers.length > 0 ? `✗ ${wrongAnswers[wrongAnswers.length - 1]}` : '✗'}
+      </div>
+ 
+      {/* Warning after 1st wrong */}
+      {wrongAnswers.length === 1 && !done && (
+        <p className="text-red-500 text-xs text-center font-semibold">
+          ⚠️ Ένα ακόμα λάθος και χάνεις την ερώτηση!
+        </p>
+      )}
+ 
+      {/* 5 CORRECT SLOTS */}
+      {answers.map((ans, i) => (
+        <div key={i}
+          className={`p-2 rounded-lg text-center font-bold transition-all
+            ${revealed.includes(i)
+              ? 'bg-green-500 text-white shadow-md'
+              : 'bg-gray-100 text-gray-400'}`}>
+          {revealed.includes(i) ? ans : `${i + 1}.`}
+        </div>
+      ))}
+ 
+      {/* STOP OR CONTINUE DIALOG — shows when 4 correct */}
+      {showStopDialog && (
+        <div className="bg-amber-50 border-2 border-amber-400 rounded-xl p-4 text-center space-y-3">
+          <p className="font-bold text-amber-800">
+            4 σωστές! Σταματάς ή συνεχίζεις;
+          </p>
+          <p className="text-sm text-amber-700">
+            Σταμάτα → <strong>1 πόντος</strong> &nbsp;|&nbsp;
+            Συνέχισε → <strong>3 πόντοι</strong> (ή 0 αν λάθος)
+          </p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={handleStop}
+              className="bg-amber-500 text-white px-5 py-2 rounded-lg font-bold hover:bg-amber-600">
+              Σταματώ (1 πόντος)
+            </button>
+            <button
+              onClick={handleContinue}
+              className="bg-green-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-green-700">
+              Συνεχίζω!
+            </button>
+          </div>
+        </div>
+      )}
+ 
+      {/* INPUT */}
+      {!done && !showStopDialog && (
+        <div className="flex gap-2 mt-3">
+          <input
+            className="flex-1 border-2 border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:border-blue-500"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+            placeholder="Απάντηση..."
+            autoFocus
+            disabled={verifying}
+          />
+          <button
+            onClick={handleSubmit}
+            disabled={verifying}
+            className="bg-blue-600 text-white px-4 rounded-lg font-bold hover:bg-blue-700 disabled:opacity-50">
+            {verifying ? '...' : 'OK'}
+          </button>
+        </div>
+      )}
+ 
+      {/* DONE STATE */}
+      {done && (
+        <div className="space-y-2">
+          {/* Reveal remaining answers */}
+          <p className="text-center text-sm text-gray-500">Οι υπόλοιπες απαντήσεις:</p>
+          {answers.map((ans, i) => (
+            !revealed.includes(i) && (
+              <div key={i} className="bg-gray-200 text-gray-600 rounded p-2 text-center text-sm">
+                {ans}
+              </div>
+            )
+          ))}
+          <button
+            onClick={onFinish}
+            className="w-full bg-stone-700 text-white py-2 rounded-lg font-bold mt-2 hover:bg-stone-800">
+            Επόμενο →
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+function ClubComboQuestion({ question, onAward, onSkip, multiplier, activePowerUp, onUsePowerUp }) {
+  const [input, setInput] = useState('');
+  const [result, setResult] = useState(null);
+  const [verifying, setVerifying] = useState(false);
+ 
+  async function handleSubmit() {
+    if (verifying || result) return;
+    setVerifying(true);
+ 
+    const normInput = normalize(input);
+    const acceptedAnswers = question.answer.split('|').map(normalize);
+ 
+    if (acceptedAnswers.includes(normInput)) {
+      setResult('correct');
+      setVerifying(false);
+      onAward(multiplier);
+      return;
+    }
+ 
+    try {
+      const res = await fetch('/api/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: `Club Combo: ${question.question}. Find a player who played for BOTH clubs.`,
+          sheetAnswer: question.answer,
+          userAnswer: input,
+        }),
+      });
+      const data = await res.json();
+      if (data.correct) {
+        setResult('correct');
+        onAward(multiplier);
+      } else {
+        setResult('wrong');
+        onAward(0);
+      }
+    } catch {
+      setResult('wrong');
+      onAward(0);
+    }
+    setVerifying(false);
+  }
+ 
+  // Parse question to check if it's "Team A & Team B" format
+  const teamMatch = question.question.match(/^(.+?)\s*[&×+]\s*(.+)$/);
+  const teamA = teamMatch?.[1]?.trim();
+  const teamB = teamMatch?.[2]?.trim();
+ 
+  return (
+    <div className="space-y-3">
+      {/* Team display */}
+      {teamA && teamB ? (
+        <div className="flex items-center justify-center gap-3 py-3">
+          <div className="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-center min-w-[100px]">
+            {teamA}
+          </div>
+          <span className="text-2xl font-black text-gray-400">&</span>
+          <div className="bg-red-600 text-white px-4 py-2 rounded-xl font-bold text-center min-w-[100px]">
+            {teamB}
+          </div>
+        </div>
+      ) : (
+        <p className="text-center font-semibold text-gray-700">{question.question}</p>
+      )}
+ 
+      <p className="text-center text-sm text-gray-500">
+        Βρες παίκτη που αγωνίστηκε και στις δύο ομάδες
+      </p>
+ 
+      {result === 'correct' && (
+        <div className="bg-green-100 border border-green-400 rounded-lg p-3 text-center">
+          <p className="text-green-700 font-bold">✓ Σωστό!</p>
+          <button onClick={onSkip} className="mt-2 bg-stone-700 text-white px-4 py-1 rounded-lg font-bold">
+            Επόμενο →
+          </button>
+        </div>
+      )}
+ 
+      {result === 'wrong' && (
+        <div className="bg-red-100 border border-red-400 rounded-lg p-3 text-center">
+          <p className="text-red-700 font-bold">✗ Λάθος!</p>
+          <p className="text-sm text-gray-600">Ένας σωστός: {question.answer.split('|')[0]}</p>
+          <button onClick={onSkip} className="mt-2 bg-stone-700 text-white px-4 py-1 rounded-lg font-bold">
+            Επόμενο →
+          </button>
+        </div>
+      )}
+ 
+      {!result && (
+        <div className="flex gap-2">
+          <input
+            className="flex-1 border-2 border-gray-300 rounded-lg p-2 focus:outline-none focus:border-blue-500"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+            placeholder="Όνομα παίκτη..."
+            autoFocus
+            disabled={verifying}
+          />
+          <button
+            onClick={handleSubmit}
+            disabled={verifying}
+            className="bg-blue-600 text-white px-4 rounded-lg font-bold hover:bg-blue-700 disabled:opacity-50">
+            {verifying ? '...' : 'OK'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+ 
 // ============================================================================
 // COIN FLIP
 // ============================================================================
