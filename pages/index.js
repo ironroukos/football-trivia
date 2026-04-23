@@ -162,8 +162,14 @@ export default function FootballTrivia() {
     const question = pool[Math.floor(Math.random() * pool.length)];
     if (!question) return;
 
-    // FIX #3: Include 'category' in the active question state
-    setActiveQuestion({ ...question, category, multiplier, slotKey: key });
+    setActiveQuestion({
+      ...question,
+      q: question.question,
+      a: question.answer,
+      category,
+      multiplier,
+      slotKey: key,
+    });
   };
 
   const handleUsePowerUp = (type) => {
@@ -190,11 +196,11 @@ export default function FootballTrivia() {
     setQuestionResolved(true);
     let pts = basePoints;
 
-    if (activePowerUp === 'x2') {
+    if (activePowerUp === 'x2' && basePoints > 0) {
       pts = basePoints * 2;
       consumePowerUp('x2');
     } else if (activePowerUp === 'fifty') {
-      pts = 1;
+      pts = basePoints > 0 ? 1 : 0;
       consumePowerUp('fifty');
     }
 
@@ -560,15 +566,20 @@ function QuestionModal({ question, onFinish, onAward, onResolved, activePowerUp,
         )}
 
         {(() => {
-          const props = { question, onFinish, onAward, onResolved, activePowerUp };
+          const props = {
+            question, onFinish, onAward, onResolved, activePowerUp,
+            multiplier: question.multiplier,
+            onSkip: onFinish,
+          };
           switch (question.type) {
-            case 'logo':       return <LogoQuestion {...props} />;
-            case 'imageText':  return <ImageTextQuestion {...props} />;
-            case 'transfer':   return <TransferQuestion {...props} />;
-            case 'careerTable':return <CareerTableQuestion {...props} />;
-            case 'lineup':     return <LineupQuestion {...props} />;
-            case 'top5':       return <Top5Question {...props} />;
-            default:           return <TextQuestion {...props} />;
+            case 'logo':        return <LogoQuestion {...props} />;
+            case 'imageText':   return <ImageTextQuestion {...props} />;
+            case 'transfer':    return <TransferQuestion {...props} />;
+            case 'careerTable': return <CareerTableQuestion {...props} />;
+            case 'whomissing':  return <WhosMissingQuestion {...props} />;
+            case 'clubcombo':   return <ClubComboQuestion {...props} />;
+            case 'top5':        return <Top5Question {...props} />;
+            default:            return <TextQuestion {...props} />;
           }
         })()}
       </div>
@@ -603,7 +614,7 @@ function AnswerInput({ question, onFinish, onAward, onResolved, activePowerUp })
     setResult(verdict);
     setVerifying(false);
     if (onResolved) onResolved();
-    if (verdict.correct) onAward(question.multiplier);
+    onAward(verdict.correct ? question.multiplier : 0);
   };
 
   if (result) {
@@ -1152,6 +1163,61 @@ function ClubComboQuestion({ question, onAward, onSkip, multiplier, activePowerU
   );
 }
  
+// ============================================================================
+// LANDING PAGE
+// ============================================================================
+function LandingPage({ sharedStyle, teamNames, onStart }) {
+  const [names, setNames] = useState([...teamNames]);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-50 p-4 flex flex-col items-center justify-center" style={{ fontFamily: "'Patrick Hand', cursive" }}>
+      <style>{sharedStyle}</style>
+      <div className="max-w-md w-full text-center">
+        <div className="flex items-center justify-center gap-3 mb-4">
+          <Beer size={56} className="text-amber-500" strokeWidth={2.5} />
+          <h1 className="handwritten text-5xl font-bold text-stone-800">FOOTBALL TRIVIA</h1>
+        </div>
+        <div className="bg-red-600 rounded-2xl py-2 px-4 mb-8 transform -rotate-1 card-shadow">
+          <p className="handwritten text-2xl text-white text-center italic font-semibold">
+            Put some strategy on your game!
+          </p>
+        </div>
+        <div className="bg-white rounded-2xl p-6 card-shadow border-4 border-stone-800 mb-6">
+          <h2 className="handwritten text-2xl text-stone-800 font-bold mb-4">Ονόματα ομάδων</h2>
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🔴</span>
+              <input
+                type="text"
+                value={names[0]}
+                onChange={(e) => setNames([e.target.value, names[1]])}
+                placeholder="RED team"
+                className="body-font flex-1 border-2 border-red-400 rounded-xl px-3 py-2 text-lg focus:outline-none focus:ring-4 focus:ring-red-200"
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🔵</span>
+              <input
+                type="text"
+                value={names[1]}
+                onChange={(e) => setNames([names[0], e.target.value])}
+                placeholder="BLUE team"
+                className="body-font flex-1 border-2 border-blue-500 rounded-xl px-3 py-2 text-lg focus:outline-none focus:ring-4 focus:ring-blue-200"
+              />
+            </div>
+          </div>
+        </div>
+        <button
+          onClick={() => onStart([names[0].trim() || 'RED team', names[1].trim() || 'BLUE team'])}
+          className="body-font bg-stone-800 text-white py-4 px-10 rounded-2xl text-xl font-bold hover:bg-stone-700 transition card-shadow"
+        >
+          Ας παίξουμε! 🎮
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ============================================================================
 // COIN FLIP
 // ============================================================================
