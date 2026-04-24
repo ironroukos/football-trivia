@@ -1,31 +1,16 @@
-// pages/api/verify.js
+import Anthropic from '@anthropic-ai/sdk';
+import { normalize } from '../../lib/normalize';
+import { rateLimit } from '../../lib/rateLimit';
 
-// === NORMALIZE HELPERS ===
-const greekToLatin = {
-  'α':'a','β':'b','γ':'g','δ':'d','ε':'e','ζ':'z','η':'i',
-  'θ':'th','ι':'i','κ':'k','λ':'l','μ':'m','ν':'n','ξ':'x',
-  'ο':'o','π':'p','ρ':'r','σ':'s','ς':'s','τ':'t','υ':'y',
-  'φ':'f','χ':'ch','ψ':'ps','ω':'o',
-  // Capitals too
-  'Α':'a','Β':'b','Γ':'g','Δ':'d','Ε':'e','Ζ':'z','Η':'i',
-  'Θ':'th','Ι':'i','Κ':'k','Λ':'l','Μ':'m','Ν':'n','Ξ':'x',
-  'Ο':'o','Π':'p','Ρ':'r','Σ':'s','Τ':'t','Υ':'y',
-  'Φ':'f','Χ':'ch','Ψ':'ps','Ω':'o',
-};
-
-function normalize(str) {
-  if (!str) return '';
-  return str
-    .normalize('NFD')                      // decompose accents: Raúl → Rau + ́l
-    .replace(/[\u0300-\u036f]/g, '')       // remove accent marks → Raul
-    .toLowerCase()
-    .trim()
-    .split('').map(c => greekToLatin[c] || c).join('') // Greek → Latin
-    .replace(/\s+/g, ' ');                 // collapse multiple spaces
-}
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const limiter = rateLimit({ windowMs: 60_000, maxRequests: 60 });
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
+
+  if (!limiter.check(req)) {
+    return res.status(429).json({ error: 'Too many requests — slow down!' });
+  }
 
   const { question, sheetAnswer, userAnswer, verifyLive } = req.body;
 
@@ -45,9 +30,12 @@ export default async function handler(req, res) {
     });
   }
 
-  // === CLAUDE API FALLBACK (fuzzy + live check) ===
+  // === CLAUDE SDK FALLBACK (fuzzy + live check) ===
   try {
-    const systemPrompt = `You are a strict football quiz answer judge.
+    const msg = await client.messages.create({
+      model: 'claude-haiku-4-5',
+      max_tokens: 200,
+      system: `You are a strict football quiz answer judge.
 You receive a question, the correct answer from a sheet, and the player's answer.
 Your job:
 1. Decide if the player's answer is correct (accounting for spelling variations, nicknames, abbreviations).
@@ -59,30 +47,23 @@ Respond ONLY with valid JSON, no markdown, no explanation:
   "canonical": "the canonical correct answer",
   "note": "brief reason",
   "flag_outdated": true or false
-}`;
-
-    const userPrompt = `Question: ${question}
+}`,
+      messages: [
+        {
+          role: 'user',
+          content: `Question: ${question}
 Sheet answer: ${sheetAnswer}
 Player answer: ${userAnswer}
-Verify live: ${verifyLive ? 'yes' : 'no'}`;
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5',
-        max_tokens: 200,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }],
-      }),
+Verify live: ${verifyLive ? 'yes' : 'no'}`,
+        },
+      ],
     });
 
-    const data = await response.json();
-    const text = data.content?.[0]?.text || '{}';
+    const text = msg.content
+      .filter((b) => b.type === 'text')
+      .map((b) => b.text)
+      .join('')
+      .trim();
     const result = JSON.parse(text.replace(/```json|```/g, '').trim());
 
     return res.json({
@@ -93,7 +74,6 @@ Verify live: ${verifyLive ? 'yes' : 'no'}`;
     });
   } catch (err) {
     console.error('Verify API error:', err);
-    // Fallback: reject if Claude fails (safe default)
     return res.json({
       correct: false,
       canonical: sheetAnswer.split('|')[0],

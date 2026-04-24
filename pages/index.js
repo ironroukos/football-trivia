@@ -1,30 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Beer, Check, X, RotateCcw, Sparkles, Minus, Plus, HelpCircle, Trophy, AlertTriangle } from 'lucide-react';
-
-// ============================================================================
-// UTILITIES
-// ============================================================================
-const greekToLatin = {
-  'α':'a','β':'b','γ':'g','δ':'d','ε':'e','ζ':'z','η':'i',
-  'θ':'th','ι':'i','κ':'k','λ':'l','μ':'m','ν':'n','ξ':'x',
-  'ο':'o','π':'p','ρ':'r','σ':'s','ς':'s','τ':'t','υ':'y',
-  'φ':'f','χ':'ch','ψ':'ps','ω':'o',
-  'Α':'a','Β':'b','Γ':'g','Δ':'d','Ε':'e','Ζ':'z','Η':'i',
-  'Θ':'th','Ι':'i','Κ':'k','Λ':'l','Μ':'m','Ν':'n','Ξ':'x',
-  'Ο':'o','Π':'p','Ρ':'r','Σ':'s','Τ':'t','Υ':'y',
-  'Φ':'f','Χ':'ch','Ψ':'ps','Ω':'o',
-};
- 
-function normalize(str) {
-  if (!str) return '';
-  return str
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')       // Raúl → Raul
-    .toLowerCase()
-    .trim()
-    .split('').map(c => greekToLatin[c] || c).join('')  // Greek → Latin
-    .replace(/\s+/g, ' ');
-}
+import { normalize } from '../lib/normalize'
 // ============================================================================
 // CATEGORY CONFIG
 // ============================================================================
@@ -152,25 +128,28 @@ export default function FootballTrivia() {
     }
   }, [usedQuestions, phase, scores, totalSlots]);
 
-  const openQuestion = (category, multiplier, slotIndex) => {
-    const key = `${category}-${slotIndex}`;
-    if (usedQuestions[key]) return;
-
-    const pool = questions[category] || [];
-    if (pool.length === 0) return;
-
-    const question = pool[Math.floor(Math.random() * pool.length)];
-    if (!question) return;
-
-    setActiveQuestion({
-      ...question,
-      q: question.question,
-      a: question.answer,
-      category,
-      multiplier,
-      slotKey: key,
-    });
-  };
+const openQuestion = (category, multiplier, slotIndex) => {
+  const key = `${category}-${slotIndex}`;
+  if (usedQuestions[key]) return;
+ 
+  const pool = questions[category] || [];
+  if (pool.length === 0) return;
+ 
+  // Find the question whose slotIndex matches the clicked slot.
+  // Falls back to array position if slotIndex isn't set (older API response).
+  const question =
+    pool.find(q => q.slotIndex === slotIndex) ?? pool[slotIndex] ?? pool[0];
+  if (!question) return;
+ 
+  setActiveQuestion({
+    ...question,
+    q: question.question,
+    a: question.answer,
+    category,
+    multiplier,
+    slotKey: key,
+  });
+};
 
   const handleUsePowerUp = (type) => {
     if (!powerUps[turn][type]) return;
@@ -900,46 +879,91 @@ function Top5Question({ question, multiplier, onAward, onFinish }) {
   const [verifying, setVerifying] = useState(false);
  
   async function handleSubmit() {
-    if (done || verifying || !input.trim()) return;
-    setVerifying(true);
+  if (done || verifying || !input.trim()) return;
+  setVerifying(true);
  
-    const normInput = normalize(input);
+  const normInput = normalize(input);
  
-    // Check against all 5 answers
-    const matchIdx = answers.findIndex(
-      (a, i) => !revealed.includes(i) && normalize(a) === normInput
-    );
+  // === STEP 1: local normalize check (fast, free) ===
+  const matchIdx = answers.findIndex(
+    (a, i) => !revealed.includes(i) && normalize(a) === normInput
+  );
  
-    if (matchIdx !== -1) {
-      // CORRECT
-      const newRevealed = [...revealed, matchIdx];
+  if (matchIdx !== -1) {
+    // Exact (normalized) match
+    const newRevealed = [...revealed, matchIdx];
+    setRevealed(newRevealed);
+    setInput('');
+    setVerifying(false);
+ 
+    if (newRevealed.length === answers.length) {
+      setDone(true);
+      onAward(multiplier);
+    } else if (newRevealed.length === answers.length - 1) {
+      setShowStopDialog(true);
+    }
+    return;
+  }
+ 
+  // === STEP 2: Claude fuzzy check (handles nicknames, abbreviations, typos) ===
+  // Build a combined sheetAnswer string of only the un-revealed answers
+  // so Claude judges against what's still left to find.
+  const remaining = answers
+    .filter((_, i) => !revealed.includes(i))
+    .join('|');
+ 
+  try {
+    const res = await fetch('/api/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        question: `Top 5 quiz. The player is trying to name one of the remaining correct answers.`,
+        sheetAnswer: remaining,
+        userAnswer: input,
+        category: 'Top 5',
+      }),
+    });
+    const data = await res.json();
+ 
+    if (data.correct) {
+      // Find which answer Claude matched (use canonical if provided, else search)
+      const canonical = data.canonical || '';
+      const fuzzyIdx = answers.findIndex(
+        (a, i) =>
+          !revealed.includes(i) &&
+          (normalize(a) === normalize(canonical) || normalize(a) === normInput)
+      );
+      const idxToReveal = fuzzyIdx !== -1 ? fuzzyIdx : answers.findIndex((_, i) => !revealed.includes(i));
+ 
+      const newRevealed = [...revealed, idxToReveal];
       setRevealed(newRevealed);
       setInput('');
       setVerifying(false);
  
-      if (newRevealed.length === 5) {
-        // All 5 found → full points
+      if (newRevealed.length === answers.length) {
         setDone(true);
         onAward(multiplier);
-      } else if (newRevealed.length === 4) {
-        // 4 found → ask stop or continue
+      } else if (newRevealed.length === answers.length - 1) {
         setShowStopDialog(true);
       }
-    } else {
-      // WRONG
-      const newWrong = [...wrongAnswers, input.trim()];
-      setWrongAnswers(newWrong);
-      setInput('');
-      setVerifying(false);
- 
-      if (newWrong.length >= 2) {
-        // 2nd wrong → lose
-        setDone(true);
-        onAward(0);
-      }
-      // 1st wrong → warning, continue playing
+      return;
     }
+  } catch {
+    // Claude unavailable — fall through to wrong answer handling below
   }
+ 
+  // === STEP 3: Wrong answer ===
+  const newWrong = [...wrongAnswers, input.trim()];
+  setWrongAnswers(newWrong);
+  setInput('');
+  setVerifying(false);
+ 
+  if (newWrong.length >= 2) {
+    setDone(true);
+    onAward(0);
+  }
+  // 1st wrong → warning, continue playing
+}
  
   function handleStop() {
     // Player chooses to stop at 4 → 1 point
@@ -1273,111 +1297,168 @@ function CoinFlip({ sharedStyle, teamNames, onComplete }) {
 // TIEBREAKER
 // ============================================================================
 function Tiebreaker({ sharedStyle, teamNames, onWinner }) {
-  const TIEBREAKERS = [
-    { q: 'Ποιο έτος κέρδισε η Ελλάδα το Euro;', a: '2004' },
-    { q: 'Πόσα Champions League έχει η Real Madrid; (αριθμός)', a: '15' },
-    { q: 'Ποιος σκόραρε το πρώτο γκολ στον τελικό World Cup 2022;', a: 'Messi|Μέσι' },
-    { q: 'Σε ποιο έτος ιδρύθηκε ο Ολυμπιακός;', a: '1925' },
-    { q: 'Ποιος είναι ο πρώτος σκόρερ στην ιστορία του Champions League;', a: 'Cristiano Ronaldo|Ρονάλντο' },
-  ];
-  const [question] = useState(TIEBREAKERS[Math.floor(Math.random() * TIEBREAKERS.length)]);
-  const [buzzer, setBuzzer] = useState(null);
-  const [answer, setAnswer] = useState('');
-  const [verifying, setVerifying] = useState(false);
-  const [result, setResult] = useState(null);
-  const [attempted, setAttempted] = useState([false, false]);
-
-  const buzz = (teamIdx) => {
-    if (buzzer !== null || attempted[teamIdx]) return;
-    setBuzzer(teamIdx);
-    setAnswer('');
-    setResult(null);
+  const [question, setQuestion] = useState(null);   // { question, options, correctIndex }
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [chosen, setChosen] = useState(null);        // index of tapped option
+  const [revealed, setRevealed] = useState(false);   // true after answer shown
+ 
+  // Fetch a fresh tiebreaker question on mount
+  useEffect(() => {
+    fetch('/api/tiebreaker', { method: 'POST' })
+      .then((r) => {
+        if (!r.ok) throw new Error(`Server error ${r.status}`);
+        return r.json();
+      })
+      .then((data) => {
+        setQuestion(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err.message);
+        setLoading(false);
+      });
+  }, []);
+ 
+  const handlePick = (optionIndex) => {
+    if (revealed || chosen !== null) return;
+    setChosen(optionIndex);
+    setRevealed(true);
   };
-
-  const submit = async () => {
-    if (!answer.trim() || verifying) return;
-    setVerifying(true);
-    const verdict = await verifyAnswer(question.a, answer);
-    setVerifying(false);
-    if (verdict.correct) {
-      setResult('correct');
-      setTimeout(() => onWinner(buzzer), 1500);
-    } else {
-      setResult('wrong');
-      const nextAttempted = [...attempted];
-      nextAttempted[buzzer] = true;
-      setAttempted(nextAttempted);
-      setTimeout(() => {
-        if (nextAttempted[0] && nextAttempted[1]) {
-          onWinner(buzzer === 0 ? 1 : 0);
-        } else {
-          setBuzzer(null);
-          setAnswer('');
-          setResult(null);
-        }
-      }, 1500);
+ 
+  const handleWinnerSelect = (teamIdx) => {
+    onWinner(teamIdx);
+  };
+ 
+  // Option button styles
+  const optionBase =
+    'w-full py-5 px-4 rounded-2xl body-font text-xl font-bold border-4 transition card-shadow text-center leading-snug';
+ 
+  const getOptionStyle = (idx) => {
+    if (!revealed) {
+      // Before answer revealed — both options look neutral/inviting
+      return `${optionBase} bg-white border-stone-400 text-stone-800 hover:border-amber-500 hover:bg-amber-50 active:scale-95 cursor-pointer`;
     }
+    const isCorrect = idx === question.correctIndex;
+    const isChosen = idx === chosen;
+ 
+    if (isCorrect) {
+      return `${optionBase} bg-green-100 border-green-600 text-green-800`;
+    }
+    if (isChosen && !isCorrect) {
+      return `${optionBase} bg-red-100 border-red-500 text-red-700`;
+    }
+    return `${optionBase} bg-stone-100 border-stone-300 text-stone-400`;
   };
-
+ 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-50 p-4 flex flex-col items-center justify-center" style={{ fontFamily: "'Patrick Hand', cursive" }}>
+    <div
+      className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-50 p-4 flex flex-col items-center justify-center"
+      style={{ fontFamily: "'Patrick Hand', cursive" }}
+    >
       <style>{sharedStyle}</style>
-      <div className="max-w-md w-full">
-        <div className="bg-amber-500 rounded-2xl py-3 px-4 mb-5 text-center card-shadow">
+      <div className="max-w-md w-full space-y-4">
+ 
+        {/* Header */}
+        <div className="bg-amber-500 rounded-2xl py-3 px-4 text-center card-shadow">
           <div className="flex items-center justify-center gap-2">
             <AlertTriangle size={24} className="text-white" />
             <h2 className="handwritten text-2xl text-white font-bold">ΑΙΦΝΙΔΙΑΣΤΙΚΟΣ ΓΥΡΟΣ</h2>
           </div>
-          <p className="body-font text-amber-50 text-sm mt-1">Ισοπαλία! Όποιος χτυπήσει το buzzer πρώτος & απαντήσει σωστά κερδίζει.</p>
+          <p className="body-font text-amber-50 text-sm mt-1">
+            Ισοπαλία! Διάλεξτε μαζί — όποιος επιλέξει σωστά κερδίζει.
+          </p>
         </div>
-        <div className="bg-white rounded-2xl p-5 card-shadow mb-5 border-4 border-stone-800">
-          <p className="body-font text-xl text-stone-800 text-center leading-relaxed">{question.q}</p>
-        </div>
-        {buzzer === null && !attempted.every(Boolean) && (
-          <div className="grid grid-cols-2 gap-3">
-            {[0, 1].map((idx) => (
-              <button key={idx} onClick={() => buzz(idx)} disabled={attempted[idx]}
-                className={`py-8 rounded-2xl body-font text-xl font-bold border-4 transition card-shadow ${
-                  attempted[idx]
-                    ? 'bg-stone-200 border-stone-300 text-stone-400 line-through'
-                    : idx === 0
-                    ? 'bg-red-50 border-red-600 text-red-700 hover:bg-red-100 active:scale-95'
-                    : 'bg-blue-50 border-blue-700 text-blue-800 hover:bg-blue-100 active:scale-95'
-                }`}
-              >
-                {idx === 0 ? '🔴' : '🔵'}<br/>{teamNames[idx]}
-              </button>
-            ))}
+ 
+        {/* Loading state */}
+        {loading && (
+          <div className="bg-white rounded-2xl p-8 card-shadow flex flex-col items-center gap-3 border-4 border-stone-800">
+            <Sparkles size={32} className="text-amber-500 animate-spin" />
+            <p className="body-font text-stone-600 text-lg">Ετοιμάζεται ερώτηση…</p>
           </div>
         )}
-        {buzzer !== null && result === null && (
-          <div className={`rounded-2xl p-4 border-4 card-shadow ${buzzer === 0 ? 'bg-red-50 border-red-600' : 'bg-blue-50 border-blue-700'}`}>
-            <p className={`body-font font-bold text-center mb-3 ${buzzer === 0 ? 'text-red-700' : 'text-blue-800'}`}>{teamNames[buzzer]} — απάντα!</p>
-            <input type="text" value={answer} onChange={(e) => setAnswer(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} disabled={verifying} placeholder="Η απάντηση…" className="body-font w-full border-2 border-stone-800 rounded-xl px-4 py-3 text-lg mb-3 bg-white focus:outline-none focus:ring-4 focus:ring-amber-300" autoFocus />
-            <button onClick={submit} disabled={verifying || !answer.trim()} className="body-font w-full bg-stone-800 text-white py-3 rounded-xl text-lg font-bold flex items-center justify-center gap-2 hover:bg-stone-700 disabled:opacity-50">
-              {verifying ? <><Sparkles size={20} className="animate-spin" /> Ελέγχει…</> : 'Υποβολή'}
+ 
+        {/* Error state */}
+        {error && !loading && (
+          <div className="bg-red-50 rounded-2xl p-5 card-shadow border-4 border-red-500 text-center">
+            <p className="body-font text-red-700">⚠️ Αδυναμία φόρτωσης ερώτησης</p>
+            <button
+              onClick={() => { setError(null); setLoading(true); fetch('/api/tiebreaker', { method: 'POST' }).then(r => r.json()).then(d => { setQuestion(d); setLoading(false); }).catch(e => { setError(e.message); setLoading(false); }); }}
+              className="mt-3 body-font bg-red-600 text-white py-2 px-5 rounded-xl font-bold"
+            >
+              Δοκίμασε ξανά
             </button>
           </div>
         )}
-        {result === 'correct' && (
-          <div className="bg-green-100 border-4 border-green-600 rounded-2xl p-5 text-center card-shadow">
-            <Check size={40} className="text-green-700 mx-auto mb-2" />
-            <p className="handwritten text-3xl text-green-700 font-bold">Σωστά! {teamNames[buzzer]} νικάει!</p>
-          </div>
-        )}
-        {result === 'wrong' && (
-          <div className="bg-red-100 border-4 border-red-600 rounded-2xl p-5 text-center card-shadow">
-            <X size={40} className="text-red-700 mx-auto mb-2" />
-            <p className="handwritten text-2xl text-red-700 font-bold">
-              {attempted.every(Boolean) ? 'Και οι δύο έχασαν!' : 'Λάθος! Σειρά αντιπάλου…'}
-            </p>
-          </div>
+ 
+        {/* Question + options */}
+        {question && !loading && (
+          <>
+            <div className="bg-white rounded-2xl p-5 card-shadow border-4 border-stone-800">
+              <p className="body-font text-xl text-stone-800 text-center leading-relaxed">
+                {question.question}
+              </p>
+            </div>
+ 
+            <div className="space-y-3">
+              {question.options.map((opt, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => handlePick(idx)}
+                  disabled={revealed}
+                  className={getOptionStyle(idx)}
+                >
+                  <span className="text-stone-400 mr-2">{idx === 0 ? 'A.' : 'B.'}</span>
+                  {opt}
+                  {revealed && idx === question.correctIndex && (
+                    <span className="ml-2 text-green-600">✓</span>
+                  )}
+                  {revealed && idx === chosen && idx !== question.correctIndex && (
+                    <span className="ml-2 text-red-500">✗</span>
+                  )}
+                </button>
+              ))}
+            </div>
+ 
+            {/* After reveal: show which team answered correctly */}
+            {revealed && (
+              <div className="bg-white rounded-2xl p-4 card-shadow border-4 border-amber-400 space-y-3">
+                <p className="body-font text-center text-stone-700 font-bold">
+                  {chosen === question.correctIndex
+                    ? '✅ Σωστή επιλογή! Ποια ομάδα το επέλεξε;'
+                    : '❌ Λάθος επιλογή! Ποια ομάδα το επέλεξε;'}
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  {[0, 1].map((teamIdx) => (
+                    <button
+                      key={teamIdx}
+                      onClick={() => {
+                        // If correct answer was picked, that team wins; otherwise the other wins
+                        const winner =
+                          chosen === question.correctIndex ? teamIdx : teamIdx === 0 ? 1 : 0;
+                        handleWinnerSelect(winner);
+                      }}
+                      className={`py-4 rounded-xl body-font font-bold border-4 text-lg transition active:scale-95 card-shadow ${
+                        teamIdx === 0
+                          ? 'bg-red-50 border-red-600 text-red-700 hover:bg-red-100'
+                          : 'bg-blue-50 border-blue-700 text-blue-800 hover:bg-blue-100'
+                      }`}
+                    >
+                      {teamIdx === 0 ? '🔴' : '🔵'} {teamNames[teamIdx]}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-center text-xs text-stone-400 body-font">
+                  Ο host επιβεβαιώνει ποια ομάδα απάντησε
+                </p>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
   );
 }
-
 // ============================================================================
 // FINISHED SCREEN
 // ============================================================================
