@@ -1,4 +1,6 @@
-# Football Trivia
+# Football Trivia 
+
+https://github.com/ironroukos/football-trivia
 
 A Next.js pub quiz app with 8 football categories, power-ups, and AI-powered answer verification via Claude.
 
