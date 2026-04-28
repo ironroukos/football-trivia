@@ -979,12 +979,15 @@ function Top5Question({ question, multiplier, onAward, onFinish }) {
   }
  
   return (
-    <div className="space-y-2"
-    {question.q && (
-  <p className="body-font text-center font-bold text-stone-800 mb-2 text-lg">
-    {question.q}
-  </p>
-)}>
+  <div className="space-y-2">
+    {question.q && (      // ← ΣΩΣΤΟ, είναι παιδί του div
+      <p className="body-font text-center font-bold text-stone-800 mb-2 text-lg">
+        {question.q}
+      </p>
+    )}
+
+    {/* WRONG ANSWER SLOT */}
+    <div className={`p-2 rounded-lg ...`}>
  
       {/* WRONG ANSWER SLOT — top, red, shows last wrong guess */}
       <div className={`p-2 rounded-lg text-center font-bold text-sm transition-all
