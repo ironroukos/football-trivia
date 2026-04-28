@@ -1,11 +1,4 @@
 // pages/api/questions.js
-//
-// SHEET_TABS env var format (use || as separator between tabs):
-//   History||https://...csv||Geography||https://...csv
-//
-// Each tab is defined by alternating name and URL pairs separated by ||.
-// This avoids the fragile indexOf(':https') approach and handles edge cases
-// like tab names that contain colons.
 
 const CATEGORY_MULTIPLIERS = {
   'History': 2,
@@ -18,9 +11,19 @@ const CATEGORY_MULTIPLIERS = {
   'Top 5': 3,
 };
 
-// How many questions to pick per category each game.
-// Must match the number of multiplier slots defined in CATEGORIES on the client.
 const QUESTIONS_PER_CATEGORY = 2;
+
+// Map each category name to its Vercel env variable
+const CATEGORY_ENVS = [
+  { name: 'History',          url: process.env.SHEET_History },
+  { name: 'Geography',        url: process.env.SHEET_Geography },
+  { name: 'Logo Quiz',        url: process.env.SHEET_Logo_Quiz },
+  { name: 'Retro Transfers',  url: process.env.SHEET_Retro_Transfers },
+  { name: 'Player ID',        url: process.env.SHEET_Player_ID },
+  { name: 'Club Combo',       url: process.env.SHEET_Club_Combo },
+  { name: "Who's Missing",    url: process.env.SHEET_Whos_Missing },
+  { name: 'Top 5',            url: process.env.SHEET_Top_5 },
+];
 
 function shuffle(arr) {
   const a = [...arr];
@@ -37,7 +40,6 @@ function parseCsv(csvText) {
 
   const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
   return lines.slice(1).map(line => {
-    // Handle commas inside quoted fields
     const cols = [];
     let current = '';
     let inQuotes = false;
@@ -54,46 +56,12 @@ function parseCsv(csvText) {
   }).filter(row => row.question && row.answer);
 }
 
-/**
- * Parse SHEET_TABS using the || delimiter format:
- *   "History||https://url1||Geography||https://url2"
- *
- * Falls back to legacy indexOf(':https') parsing so existing deployments
- * using the old | format don't break immediately.
- */
-function parseSheetTabs(tabsEnv) {
-  // New format: pairs separated by ||
-  if (tabsEnv.includes('||')) {
-    const parts = tabsEnv.split('||').map(p => p.trim());
-    const tabs = [];
-    for (let i = 0; i < parts.length - 1; i += 2) {
-      const name = parts[i];
-      const url = parts[i + 1];
-      if (name && url) tabs.push({ name, url });
-    }
-    return tabs;
-  }
-
-  // Legacy format: "CategoryName:https://url|CategoryName2:https://url2"
-  // Split by | then find the first occurrence of ':https' to separate name from URL.
-  return tabsEnv.split('|').map(t => {
-    const colonIdx = t.indexOf(':https');
-    if (colonIdx === -1) return null;
-    return {
-      name: t.slice(0, colonIdx).trim(),
-      url: t.slice(colonIdx + 1).trim(),
-    };
-  }).filter(Boolean);
-}
-
 export default async function handler(req, res) {
   try {
-    const tabsEnv = process.env.SHEET_TABS;
-    if (!tabsEnv) return res.status(500).json({ error: 'SHEET_TABS not set' });
+    const tabs = CATEGORY_ENVS.filter(c => c.url);
 
-    const tabs = parseSheetTabs(tabsEnv);
     if (tabs.length === 0) {
-      return res.status(500).json({ error: 'SHEET_TABS parsed to 0 tabs — check format' });
+      return res.status(500).json({ error: 'No category URLs set — check Vercel env variables' });
     }
 
     const results = await Promise.all(
@@ -103,9 +71,6 @@ export default async function handler(req, res) {
           const csv = await response.text();
           const rows = parseCsv(csv);
 
-          // Shuffle the full pool, then take QUESTIONS_PER_CATEGORY distinct questions.
-          // Each question is assigned a slotIndex matching its position (0, 1, …)
-          // so the client can open them independently without repeat.
           const picked = shuffle(rows).slice(0, QUESTIONS_PER_CATEGORY);
 
           const questions = picked.map((row, slotIndex) => ({
@@ -114,8 +79,6 @@ export default async function handler(req, res) {
             image_url: row.image_url || null,
             category: name,
             multiplier: CATEGORY_MULTIPLIERS[name] || 1,
-            // slotIndex lets the client key questions as `${category}-${slotIndex}`
-            // guaranteeing the same question is shown for that slot every time it's opened.
             slotIndex,
           }));
 
@@ -127,7 +90,6 @@ export default async function handler(req, res) {
       })
     );
 
-    // Build object keyed by category name: { History: [...], Geography: [...], ... }
     const questions = {};
     results.forEach(({ name, questions: qs }) => {
       questions[name] = qs;
