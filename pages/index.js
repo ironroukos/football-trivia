@@ -480,7 +480,20 @@ function BreakdownModal({ breakdown, totals, teamNames = ['RED', 'BLUE'], onClos
               <div key={cat.name} className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-2 border-b border-stone-100 body-font text-sm">
                 <span className="text-stone-700">{cat.name}</span>
                 <span className="text-red-600 font-bold w-20 text-center">{r > 0 ? `+${r}` : '—'}</span>
-                <span className="text-blue-700 font-bold w-20 text-center">{b > 0 ? 
+                <span className="text-blue-700 font-bold w-20 text-center">{b > 0 ? `+${b}` : '—'}</span>
+              </div>
+            );
+          })}
+          <div className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-2 bg-stone-100 body-font text-sm font-bold">
+            <span className="text-stone-800">Σύνολο</span>
+            <span className="text-red-600 w-20 text-center">{totals[0]}</span>
+            <span className="text-blue-700 w-20 text-center">{totals[1]}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+            }
 
 // ============================================================================
 // QUESTION MODAL
