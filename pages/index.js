@@ -145,11 +145,11 @@ const openQuestion = (category, multiplier, slotIndex) => {
     ...question,
     q: question.question,
     a: question.answer,
+    imageUrl: question.image_url,
     category,
     multiplier,
     slotKey: key,
   });
-};
 
   const handleUsePowerUp = (type) => {
     if (!powerUps[turn][type]) return;
@@ -979,7 +979,12 @@ function Top5Question({ question, multiplier, onAward, onFinish }) {
   }
  
   return (
-    <div className="space-y-2">
+    <div className="space-y-2"
+    {question.q && (
+  <p className="body-font text-center font-bold text-stone-800 mb-2 text-lg">
+    {question.q}
+  </p>
+)}>
  
       {/* WRONG ANSWER SLOT — top, red, shows last wrong guess */}
       <div className={`p-2 rounded-lg text-center font-bold text-sm transition-all
