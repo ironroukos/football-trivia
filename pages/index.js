@@ -1050,10 +1050,9 @@ function Top5Question({ question, multiplier, onAward, onFinish }) {
         </div>
       )}
  
-      {/* DONE STATE */}
+{/* DONE STATE */}
       {done && (
         <div className="space-y-2">
-          {/* Reveal remaining answers */}
           <p className="text-center text-sm text-gray-500">Οι υπόλοιπες απαντήσεις:</p>
           {answers.map((ans, i) => (
             !revealed.includes(i) && (
@@ -1069,9 +1068,11 @@ function Top5Question({ question, multiplier, onAward, onFinish }) {
           </button>
         </div>
       )}
-    </div>
+    </div>  {/* closes the p-2 rounded-lg wrong-answer-slot div */}
+  </div>    {/* ← ADD THIS LINE */}
   );
 }
+
 function ClubComboQuestion({ question, onAward, onSkip, multiplier, activePowerUp, onUsePowerUp }) {
   const [input, setInput] = useState('');
   const [result, setResult] = useState(null);
