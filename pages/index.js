@@ -1068,8 +1068,8 @@ function Top5Question({ question, multiplier, onAward, onFinish }) {
           </button>
         </div>
       )}
-    </div>  {/* closes the p-2 rounded-lg wrong-answer-slot div */}
-  </div>    {/* ← ADD THIS LINE */}
+    </div>  
+  </div>   
   );
 }
 
