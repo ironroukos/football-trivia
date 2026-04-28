@@ -94,7 +94,6 @@ export default function FootballTrivia() {
   const [phase, setPhase] = useState('landing');
   const [teamNames, setTeamNames] = useState(['RED team', 'BLUE team']);
 
-  // FIX #4: Fetch questions from the API instead of using hardcoded mock data
   const [questions, setQuestions] = useState({});
   const [questionsLoading, setQuestionsLoading] = useState(false);
   const [questionsError, setQuestionsError] = useState(null);
@@ -128,28 +127,27 @@ export default function FootballTrivia() {
     }
   }, [usedQuestions, phase, scores, totalSlots]);
 
-const openQuestion = (category, multiplier, slotIndex) => {
-  const key = `${category}-${slotIndex}`;
-  if (usedQuestions[key]) return;
- 
-  const pool = questions[category] || [];
-  if (pool.length === 0) return;
- 
-  // Find the question whose slotIndex matches the clicked slot.
-  // Falls back to array position if slotIndex isn't set (older API response).
-  const question =
-    pool.find(q => q.slotIndex === slotIndex) ?? pool[slotIndex] ?? pool[0];
-  if (!question) return;
- 
-  setActiveQuestion({
-    ...question,
-    q: question.question,
-    a: question.answer,
-    imageUrl: question.image_url,
-    category,
-    multiplier,
-    slotKey: key,
-  });
+  const openQuestion = (category, multiplier, slotIndex) => {
+    const key = `${category}-${slotIndex}`;
+    if (usedQuestions[key]) return;
+
+    const pool = questions[category] || [];
+    if (pool.length === 0) return;
+
+    const question =
+      pool.find(q => q.slotIndex === slotIndex) ?? pool[slotIndex] ?? pool[0];
+    if (!question) return;
+
+    setActiveQuestion({
+      ...question,
+      q: question.question,
+      a: question.answer,
+      imageUrl: question.image_url,
+      category,
+      multiplier,
+      slotKey: key,
+    });
+  };  // ← ΣΩΣΤΟ κλείσιμο του openQuestion
 
   const handleUsePowerUp = (type) => {
     if (!powerUps[turn][type]) return;
@@ -158,7 +156,6 @@ const openQuestion = (category, multiplier, slotIndex) => {
     setActivePowerUp(type);
   };
 
-  // FIX #7: Single source of truth for power-up consumption via a ref guard
   const powerUpConsumedRef = useRef(false);
 
   const consumePowerUp = (type) => {
@@ -170,7 +167,6 @@ const openQuestion = (category, multiplier, slotIndex) => {
     }));
   };
 
-  // FIX #6: Simplified awardPoints — power-up multiplying always done here, not in child components
   const awardPoints = (basePoints) => {
     setQuestionResolved(true);
     let pts = basePoints;
@@ -209,7 +205,7 @@ const openQuestion = (category, multiplier, slotIndex) => {
     }
     setActiveQuestion(null);
     setQuestionResolved(false);
-    powerUpConsumedRef.current = false; // reset for next question
+    powerUpConsumedRef.current = false;
   };
 
   const resetGame = () => {
@@ -273,7 +269,6 @@ const openQuestion = (category, multiplier, slotIndex) => {
           </p>
         </div>
 
-        {/* FIX #4: Show loading / error state for questions */}
         {questionsLoading && (
           <div className="text-center py-4 body-font text-stone-500 flex items-center justify-center gap-2">
             <Sparkles size={18} className="animate-spin text-amber-500" />
@@ -482,29 +477,10 @@ function BreakdownModal({ breakdown, totals, teamNames = ['RED', 'BLUE'], onClos
             const r = breakdown[0][cat.name] || 0;
             const b = breakdown[1][cat.name] || 0;
             return (
-              <div key={cat.name} className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-2 body-font border-b border-stone-100 items-center">
-                <span className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.bg }}></span>
-                  <span className="text-stone-700">{cat.name}</span>
-                </span>
-                <span className={`w-20 text-center font-bold ${r > 0 ? 'text-red-600' : 'text-stone-300'}`}>{r}</span>
-                <span className={`w-20 text-center font-bold ${b > 0 ? 'text-blue-700' : 'text-stone-300'}`}>{b}</span>
-              </div>
-            );
-          })}
-          <div className="grid grid-cols-[1fr_auto_auto] gap-2 bg-stone-800 px-3 py-3 body-font">
-            <span className="handwritten text-xl text-white font-bold">Σύνολο</span>
-            <span className="handwritten text-2xl text-red-400 w-12 text-center font-bold">{totals[0]}</span>
-            <span className="handwritten text-2xl text-blue-300 w-12 text-center font-bold">{totals[1]}</span>
-          </div>
-        </div>
-        <button onClick={onClose} className="mt-4 w-full body-font bg-stone-800 text-white py-2 rounded-xl hover:bg-stone-700">
-          Κλείσιμο
-        </button>
-      </div>
-    </div>
-  );
-}
+              <div key={cat.name} className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-2 border-b border-stone-100 body-font text-sm">
+                <span className="text-stone-700">{cat.name}</span>
+                <span className="text-red-600 font-bold w-20 text-center">{r > 0 ? `+${r}` : '—'}</span>
+                <span className="text-blue-700 font-bold w-20 text-center">{b > 0 ? 
 
 // ============================================================================
 // QUESTION MODAL
