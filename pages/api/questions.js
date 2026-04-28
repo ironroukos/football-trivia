@@ -11,9 +11,19 @@ const CATEGORY_MULTIPLIERS = {
   'Top 5': 3,
 };
 
+const CATEGORY_TYPES = {
+  'History':          'text',
+  'Geography':        'text',
+  'Logo Quiz':        'logo',
+  'Retro Transfers':  'transfer',
+  'Player ID':        'imageText',
+  'Club Combo':       'clubcombo',
+  "Who's Missing":    'whomissing',
+  'Top 5':            'top5',
+};
+
 const QUESTIONS_PER_CATEGORY = 2;
 
-// Map each category name to its Vercel env variable
 const CATEGORY_ENVS = [
   { name: 'History',          url: process.env.SHEET_History },
   { name: 'Geography',        url: process.env.SHEET_Geography },
@@ -53,7 +63,63 @@ function parseCsv(csvText) {
     const row = {};
     headers.forEach((h, i) => { row[h] = cols[i] || ''; });
     return row;
-  }).filter(row => row.question && row.answer);
+  }).filter(row => {
+    return (row.question || row.period) && (row.answer || row.player);
+  });
+}
+
+function buildQuestion(row, name, slotIndex) {
+  const type = CATEGORY_TYPES[name] || 'text';
+  const multiplier = CATEGORY_MULTIPLIERS[name] || 1;
+
+  const isImageUrl = (str) => str && str.trim().startsWith('http');
+
+  switch (type) {
+
+    case 'transfer':
+      // Sheet: period | from | to | player
+      return {
+        type,
+        category: name,
+        multiplier,
+        slotIndex,
+        question: row.period  || row.question || '',
+        answer:   row.player  || row.answer   || '',
+        from:     row.from    || '',
+        to:       row.to      || '',
+        image_url: null,
+      };
+
+    case 'whomissing':
+    case 'imageText':
+    case 'logo':
+      // Sheet: question (= image URL) | answer
+      // Το question είναι το URL της εικόνας
+      return {
+        type,
+        category: name,
+        multiplier,
+        slotIndex,
+        question:  isImageUrl(row.question) ? '' : row.question,
+        answer:    row.answer || '',
+        image_url: isImageUrl(row.question) ? row.question.trim() : null,
+      };
+
+    case 'top5':
+    case 'clubcombo':
+    case 'text':
+    default:
+      // Sheet: question | answer
+      return {
+        type,
+        category: name,
+        multiplier,
+        slotIndex,
+        question:  row.question || '',
+        answer:    row.answer   || '',
+        image_url: null,
+      };
+  }
 }
 
 export default async function handler(req, res) {
@@ -70,18 +136,8 @@ export default async function handler(req, res) {
           const response = await fetch(url);
           const csv = await response.text();
           const rows = parseCsv(csv);
-
           const picked = shuffle(rows).slice(0, QUESTIONS_PER_CATEGORY);
-
-          const questions = picked.map((row, slotIndex) => ({
-            question: row.question,
-            answer: row.answer,
-            image_url: row.image_url || null,
-            category: name,
-            multiplier: CATEGORY_MULTIPLIERS[name] || 1,
-            slotIndex,
-          }));
-
+          const questions = picked.map((row, slotIndex) => buildQuestion(row, name, slotIndex));
           return { name, questions };
         } catch (err) {
           console.error(`Failed to fetch tab: ${name}`, err);
