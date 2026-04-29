@@ -77,19 +77,20 @@ function buildQuestion(row, name, slotIndex) {
   switch (type) {
 
     case 'transfer':
-      // Sheet: period | from | to | player
-      return {
-        type,
-        category: name,
-        multiplier,
-        slotIndex,
-        question: row.period  || row.question || '',
-        answer:   row.player  || row.answer   || '',
-        from:     row.from    || '',
-        to:       row.to      || '',
-        image_url: null,
-      };
-
+  // Sheet: period | year | from | to | player
+  return {
+    type,
+    category: name,
+    multiplier,
+    slotIndex,
+    question: row.period  || row.question || '',
+    answer:   row.player  || row.answer   || '',
+    from:     row.from    || '',
+    to:       row.to      || '',
+    year:     row.year    || '',
+    image_url: null,
+  };
+      
     case 'whomissing':
     case 'imageText':
     case 'logo':
