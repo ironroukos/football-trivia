@@ -858,164 +858,7 @@ function WhosMissingQuestion({ question, onAward, onSkip, multiplier, activePowe
 // TOP 5 QUESTION — FIX #5: "Continue" button now works
 // ============================================================================
  
-function Top5Question({ question, multiplier, onAward, onFinish }) {
-  const answers = (question.answer || '').split('|').map(a => a.trim());
-  const [revealed, setRevealed] = useState([]);   // indices of correct answers found
-  const [wrongAnswers, setWrongAnswers] = useState([]);  // list of wrong guesses (max 2)
-  const [input, setInput] = useState('');
-  const [done, setDone] = useState(false);
-  const [showStopDialog, setShowStopDialog] = useState(false);
-  const [verifying, setVerifying] = useState(false);
- 
-  async function handleSubmit() {
-  if (done || verifying || !input.trim()) return;
-  setVerifying(true);
- 
-  const normInput = normalize(input);
- 
-  // === STEP 1: local normalize check (fast, free) ===
-  const matchIdx = answers.findIndex(
-    (a, i) => !revealed.includes(i) && normalize(a) === normInput
-  );
- 
-  if (matchIdx !== -1) {
-    // Exact (normalized) match
-    const newRevealed = [...revealed, matchIdx];
-    setRevealed(newRevealed);
-    setInput('');
-    setVerifying(false);
- 
-    if (newRevealed.length === answers.length) {
-      setDone(true);
-      onAward(multiplier);
-    } else if (newRevealed.length === answers.length - 1) {
-      setShowStopDialog(true);
-    }
-    return;
-  }
- 
-  // === STEP 2: Claude fuzzy check (handles nicknames, abbreviations, typos) ===
-  // Build a combined sheetAnswer string of only the un-revealed answers
-  // so Claude judges against what's still left to find.
-  const remaining = answers
-    .filter((_, i) => !revealed.includes(i))
-    .join('|');
- 
-  try {
-    const res = await fetch('/api/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        question: `Top 5 quiz. The player is trying to name one of the remaining correct answers.`,
-        sheetAnswer: remaining,
-        userAnswer: input,
-        category: 'Top 5',
-      }),
-    });
-    const data = await res.json();
- 
-if (data.correct) {
-  const canonical = data.canonical || '';
-  
-  // Ψάξε με normalize στο canonical πρώτα
-  let idxToReveal = answers.findIndex(
-    (a, i) => !revealed.includes(i) && normalize(a) === normalize(canonical)
-  );
-  
-  // Αν δεν βρέθηκε, ψάξε με το userAnswer
-  if (idxToReveal === -1) {
-    idxToReveal = answers.findIndex(
-      (a, i) => !revealed.includes(i) && normalize(a) === normInput
-    );
-  }
-
-  // Αν ΚΑΙ πάλι δεν βρέθηκε, ΜΗΝ αποκαλύψεις τίποτα — treat as wrong
-  if (idxToReveal === -1) {
-    const newWrong = [...wrongAnswers, input.trim()];
-    setWrongAnswers(newWrong);
-    setInput('');
-    setVerifying(false);
-    if (newWrong.length >= 2) { setDone(true); onAward(0); }
-    return;
-  }
-
-  const newRevealed = [...revealed, idxToReveal];
-  setRevealed(newRevealed);
-  setInput('');
-  setVerifying(false);
-
-  if (newRevealed.length === answers.length) {
-    setDone(true);
-    onAward(multiplier);
-  } else if (newRevealed.length === answers.length - 1) {
-    setShowStopDialog(true);
-  }
-  return;
-} 
-    }
-  } catch {
-    // Claude unavailable — fall through to wrong answer handling below
-  }
- 
-  // === STEP 3: Wrong answer ===
-  const newWrong = [...wrongAnswers, input.trim()];
-  setWrongAnswers(newWrong);
-  setInput('');
-  setVerifying(false);
- 
-  if (newWrong.length >= 2) {
-    setDone(true);
-    onAward(0);
-  }
-  // 1st wrong → warning, continue playing
-}
- 
-  function handleStop() {
-    // Player chooses to stop at 4 → 1 point
-    setShowStopDialog(false);
-    setDone(true);
-    onAward(1);
-  }
- 
-  function handleContinue() {
-    // Player chooses to go for 5th
-    setShowStopDialog(false);
-    // Game continues, if they get wrong next → 0pts (handled above)
-  }
- 
-  return (
-  <div className="space-y-2">
-    {question.q && (      // ← ΣΩΣΤΟ, είναι παιδί του div
-      <p className="body-font text-center font-bold text-stone-800 mb-2 text-lg">
-        {question.q}
-      </p>
-    )}
-
-    {/* WRONG ANSWER SLOT */}
-    <div className={`p-2 rounded-lg ...`}>
- 
-      {/* WRONG ANSWER SLOT — top, red, shows last wrong guess */}
-      <div className={`p-2 rounded-lg text-center font-bold text-sm transition-all
-        ${wrongAnswers.length > 0
-          ? 'bg-red-500 text-white'
-          : 'bg-gray-100 text-gray-300 border-2 border-dashed border-red-200'}`}>
-        {wrongAnswers.length > 0 ? `✗ ${wrongAnswers[wrongAnswers.length - 1]}` : '✗'}
-      </div>
- 
-      {/* Warning after 1st wrong */}
-      {wrongAnswers.length === 1 && !done && (
-        <p className="text-red-500 text-xs text-center font-semibold">
-          ⚠️ Ένα ακόμα λάθος και χάνεις την ερώτηση!
-        </p>
-      )}
- 
-      {/* 5 CORRECT SLOTS */}
-      {answers.map((ans, i) => (
-        <div key={i}
-          className={`p-2 rounded-lg text-center font-bold transition-all
-            ${revealed.includes(i)
-              ? 'bg-green-500 text-white shadow-md'
-              : 'bg-gray-100 text-gray-400'}`}>
+  gray-100 text-gray-400'}`}>
           {revealed.includes(i) ? ans : `${i + 1}.`}
         </div>
       ))}
@@ -1084,10 +927,188 @@ if (data.correct) {
           </button>
         </div>
       )}
-    </div>  
-  </div>   
+
+function Top5Question({ question, multiplier, onAward, onFinish }) {
+  const answers = (question.answer || '').split('|').map(a => a.trim());
+  const [revealed, setRevealed] = useState([]);
+  const [wrongAnswers, setWrongAnswers] = useState([]);
+  const [input, setInput] = useState('');
+  const [done, setDone] = useState(false);
+  const [showStopDialog, setShowStopDialog] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+
+  async function handleSubmit() {
+    if (done || verifying || !input.trim()) return;
+    setVerifying(true);
+
+    const normInput = normalize(input);
+
+    // STEP 1: local check
+    const matchIdx = answers.findIndex(
+      (a, i) => !revealed.includes(i) && normalize(a) === normInput
+    );
+
+    if (matchIdx !== -1) {
+      const newRevealed = [...revealed, matchIdx];
+      setRevealed(newRevealed);
+      setInput('');
+      setVerifying(false);
+      if (newRevealed.length === answers.length) { setDone(true); onAward(multiplier); }
+      else if (newRevealed.length === answers.length - 1) { setShowStopDialog(true); }
+      return;
+    }
+
+    // STEP 2: Claude fuzzy
+    const remaining = answers.filter((_, i) => !revealed.includes(i)).join('|');
+    try {
+      const res = await fetch('/api/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: `Top 5 quiz. The player is trying to name one of the remaining correct answers.`,
+          sheetAnswer: remaining,
+          userAnswer: input,
+          category: 'Top 5',
+        }),
+      });
+      const data = await res.json();
+
+      if (data.correct) {
+        const canonical = data.canonical || '';
+        let idxToReveal = answers.findIndex(
+          (a, i) => !revealed.includes(i) && normalize(a) === normalize(canonical)
+        );
+        if (idxToReveal === -1) {
+          idxToReveal = answers.findIndex(
+            (a, i) => !revealed.includes(i) && normalize(a) === normInput
+          );
+        }
+        if (idxToReveal === -1) {
+          // Claude matched something we can't pin — treat as wrong
+          const newWrong = [...wrongAnswers, input.trim()];
+          setWrongAnswers(newWrong);
+          setInput('');
+          setVerifying(false);
+          if (newWrong.length >= 2) { setDone(true); onAward(0); }
+          return;
+        }
+        const newRevealed = [...revealed, idxToReveal];
+        setRevealed(newRevealed);
+        setInput('');
+        setVerifying(false);
+        if (newRevealed.length === answers.length) { setDone(true); onAward(multiplier); }
+        else if (newRevealed.length === answers.length - 1) { setShowStopDialog(true); }
+        return;
+      }
+    } catch { /* Claude unavailable */ }
+
+    // STEP 3: Wrong
+    const newWrong = [...wrongAnswers, input.trim()];
+    setWrongAnswers(newWrong);
+    setInput('');
+    setVerifying(false);
+    if (newWrong.length >= 2) { setDone(true); onAward(0); }
+  }
+
+  function handleStop() { setShowStopDialog(false); setDone(true); onAward(1); }
+  function handleContinue() { setShowStopDialog(false); }
+
+  const lastWrong = wrongAnswers[wrongAnswers.length - 1];
+
+  return (
+    <div className="space-y-3">
+      {question.q && (
+        <p className="body-font text-center font-bold text-stone-800 text-lg">{question.q}</p>
+      )}
+
+      {/* ΠΡΑΣΙΝΟ PANEL με 5 slots */}
+      <div className="bg-green-600 rounded-xl p-3 space-y-2">
+        {answers.map((ans, i) => (
+          <div key={i} className={`rounded-full px-4 py-2 flex items-center gap-3 transition-all
+            ${revealed.includes(i) ? 'bg-green-800' : 'bg-green-500'}`}>
+            <span className="bg-white text-green-700 rounded-full w-7 h-7 flex items-center justify-center body-font font-bold text-sm flex-shrink-0">
+              {i + 1}
+            </span>
+            <span className="handwritten text-xl text-white font-bold">
+              {revealed.includes(i) ? ans : '—'}
+            </span>
+          </div>
+        ))}
+
+        {/* ΚΟΚΚΙΝΟ SLOT για λάθος — πάντα φαίνεται */}
+        <div className={`rounded-full px-4 py-2 flex items-center gap-3 transition-all mt-1
+          ${wrongAnswers.length > 0 ? 'bg-red-500' : 'bg-red-800/40'}`}>
+          <span className="bg-white text-red-600 rounded-full w-7 h-7 flex items-center justify-center body-font font-bold text-sm flex-shrink-0">
+            ✗
+          </span>
+          <span className="handwritten text-xl text-white font-bold">
+            {lastWrong || '—'}
+          </span>
+          {wrongAnswers.length === 1 && !done && (
+            <span className="body-font text-xs text-white/80 ml-auto">⚠️ 1 ακόμα λάθος!</span>
+          )}
+        </div>
+      </div>
+
+      {/* STOP OR CONTINUE */}
+      {showStopDialog && (
+        <div className="bg-amber-50 border-2 border-amber-400 rounded-xl p-4 text-center space-y-3">
+          <p className="body-font font-bold text-amber-800">4 σωστές! Σταματάς ή συνεχίζεις;</p>
+          <p className="body-font text-sm text-amber-700">
+            Σταμάτα → <strong>1 πόντος</strong> &nbsp;|&nbsp; Συνέχισε → <strong>{multiplier} πόντοι</strong> (ή 0 αν λάθος)
+          </p>
+          <div className="flex gap-3 justify-center">
+            <button onClick={handleStop}
+              className="body-font bg-amber-500 text-white px-5 py-2 rounded-lg font-bold hover:bg-amber-600">
+              Σταματώ (1 πόντος)
+            </button>
+            <button onClick={handleContinue}
+              className="body-font bg-green-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-green-700">
+              Συνεχίζω!
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* INPUT */}
+      {!done && !showStopDialog && (
+        <div className="flex gap-2">
+          <input
+            className="flex-1 border-2 border-stone-300 rounded-lg p-2 body-font text-stone-900 focus:outline-none focus:border-green-500"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+            placeholder="Απάντηση..."
+            autoFocus
+            disabled={verifying}
+          />
+          <button onClick={handleSubmit} disabled={verifying}
+            className="body-font bg-green-600 text-white px-4 rounded-lg font-bold hover:bg-green-700 disabled:opacity-50">
+            {verifying ? '...' : 'OK'}
+          </button>
+        </div>
+      )}
+
+      {/* DONE */}
+      {done && (
+        <div className="space-y-2">
+          {answers.some((_, i) => !revealed.includes(i)) && (
+            <>
+              <p className="body-font text-center text-sm text-stone-500">Οι υπόλοιπες απαντήσεις:</p>
+              {answers.map((ans, i) => !revealed.includes(i) && (
+                <div key={i} className="bg-stone-200 text-stone-600 rounded-lg p-2 text-center body-font text-sm">{ans}</div>
+              ))}
+            </>
+          )}
+          <button onClick={onFinish}
+            className="body-font w-full bg-stone-700 text-white py-2 rounded-lg font-bold hover:bg-stone-800">
+            Επόμενο →
+          </button>
+        </div>
+      )}
+    </div>
   );
-}
+              }
 
 function ClubComboQuestion({ question, onAward, onSkip, multiplier, activePowerUp, onUsePowerUp }) {
   const [input, setInput] = useState('');
