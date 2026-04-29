@@ -711,25 +711,25 @@ function TransferQuestion({ question, onFinish, onAward, onResolved, activePower
 }
 
 function CareerTableQuestion({ question, onFinish, onAward, onResolved, activePowerUp }) {
+
+function TransferQuestion({ question, onFinish, onAward, onResolved, activePowerUp }) {
   return (
     <>
-      <div className="bg-gradient-to-b from-purple-600 to-purple-800 rounded-xl p-3 mb-4">
-        <div className="flex justify-between text-purple-100 body-font text-sm uppercase tracking-wide border-b border-purple-400 pb-2 mb-2">
-          <span>Ομάδα</span><span>Περίοδος</span>
-        </div>
-        <div className="max-h-64 overflow-y-auto">
-          {(question.career || []).map(([team, period], i) => (
-            <div key={i} className={`flex justify-between body-font text-white py-1.5 px-2 rounded ${i % 2 ? 'bg-purple-700/40' : ''}`}>
-              <span>{team}</span><span className="text-purple-200">{period}</span>
-            </div>
-          ))}
-        </div>
+      <div className="bg-stone-800 rounded-t-xl py-2 px-4 text-center">
+        <span className="handwritten text-xl text-white">
+          {question.period} {question.year}
+        </span>
       </div>
-      <p className="body-font text-stone-600 text-center mb-3">Ποιος είναι αυτός ο παίκτης;</p>
+      <div className="bg-green-600 rounded-b-xl p-4 mb-4 flex items-center justify-around">
+        <span className="handwritten text-2xl text-white font-bold">{question.from}</span>
+        <span className="text-white text-2xl">▶</span>
+        <span className="handwritten text-2xl text-white font-bold">{question.to}</span>
+      </div>
+      <p className="body-font text-stone-600 text-center mb-3">Ποιος παίκτης έκανε αυτή τη μεταγραφή;</p>
       <AnswerInput question={question} onFinish={onFinish} onAward={onAward} onResolved={onResolved} activePowerUp={activePowerUp} />
     </>
   );
-}
+} 
 
 function WhosMissingQuestion({ question, onAward, onSkip, multiplier, activePowerUp, onUsePowerUp }) {
   const [input, setInput] = useState('');
