@@ -35,16 +35,23 @@ export default async function handler(req, res) {
     const msg = await client.messages.create({
       model: 'claude-haiku-4-5',
       max_tokens: 200,
-      system: `You are a strict football quiz answer judge.
-You receive a question, the correct answer from a sheet, and the player's answer.
-Your job:
-1. Decide if the player's answer is correct (accounting for spelling variations, nicknames, abbreviations).
-2. If verify_live is true, also check if the sheet answer might be outdated based on your knowledge.
+      system: `You are a football quiz answer judge that handles multilingual answers.
+You receive a correct answer and a player's answer.
+Mark as CORRECT if they refer to the same person/team/thing, even if:
+- Different spelling (Cholevas / Cholebas / Holevas / Holebas)
+- Greek vs Latin characters (Χολέμπας = Cholevas)
+- Phonetic transliteration (Ρονάλντο = Ronaldo)
+- Common nickname or abbreviation (Ronaldo = Cristiano Ronaldo)
+- Minor typos (1-2 characters off)
 
-Respond ONLY with valid JSON, no markdown, no explanation:
+Mark as INCORRECT only if it's clearly a different person or thing.
+
+The "canonical" field must be copied EXACTLY from the sheet answer as provided.
+
+Respond ONLY with valid JSON, no markdown:
 {
   "correct": true or false,
-  "canonical": "the canonical correct answer",
+  "canonical": "exact text from sheet answer",
   "note": "brief reason",
   "flag_outdated": true or false
 }`,
