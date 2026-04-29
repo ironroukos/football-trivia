@@ -914,28 +914,44 @@ function Top5Question({ question, multiplier, onAward, onFinish }) {
     });
     const data = await res.json();
  
-    if (data.correct) {
-      // Find which answer Claude matched (use canonical if provided, else search)
-      const canonical = data.canonical || '';
-      const fuzzyIdx = answers.findIndex(
-        (a, i) =>
-          !revealed.includes(i) &&
-          (normalize(a) === normalize(canonical) || normalize(a) === normInput)
-      );
-      const idxToReveal = fuzzyIdx !== -1 ? fuzzyIdx : answers.findIndex((_, i) => !revealed.includes(i));
- 
-      const newRevealed = [...revealed, idxToReveal];
-      setRevealed(newRevealed);
-      setInput('');
-      setVerifying(false);
- 
-      if (newRevealed.length === answers.length) {
-        setDone(true);
-        onAward(multiplier);
-      } else if (newRevealed.length === answers.length - 1) {
-        setShowStopDialog(true);
-      }
-      return;
+if (data.correct) {
+  const canonical = data.canonical || '';
+  
+  // Ψάξε με normalize στο canonical πρώτα
+  let idxToReveal = answers.findIndex(
+    (a, i) => !revealed.includes(i) && normalize(a) === normalize(canonical)
+  );
+  
+  // Αν δεν βρέθηκε, ψάξε με το userAnswer
+  if (idxToReveal === -1) {
+    idxToReveal = answers.findIndex(
+      (a, i) => !revealed.includes(i) && normalize(a) === normInput
+    );
+  }
+
+  // Αν ΚΑΙ πάλι δεν βρέθηκε, ΜΗΝ αποκαλύψεις τίποτα — treat as wrong
+  if (idxToReveal === -1) {
+    const newWrong = [...wrongAnswers, input.trim()];
+    setWrongAnswers(newWrong);
+    setInput('');
+    setVerifying(false);
+    if (newWrong.length >= 2) { setDone(true); onAward(0); }
+    return;
+  }
+
+  const newRevealed = [...revealed, idxToReveal];
+  setRevealed(newRevealed);
+  setInput('');
+  setVerifying(false);
+
+  if (newRevealed.length === answers.length) {
+    setDone(true);
+    onAward(multiplier);
+  } else if (newRevealed.length === answers.length - 1) {
+    setShowStopDialog(true);
+  }
+  return;
+} 
     }
   } catch {
     // Claude unavailable — fall through to wrong answer handling below
