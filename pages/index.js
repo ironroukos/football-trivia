@@ -62,6 +62,7 @@ const sharedStyle = `
   @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Patrick+Hand&display=swap');
   .handwritten { font-family: 'Caveat', cursive; }
   .body-font { font-family: 'Patrick Hand', cursive; }
+  input { color: #1c1917; }
   .chip-shadow { box-shadow: inset 0 -2px 0 rgba(0,0,0,0.15), 0 1px 2px rgba(0,0,0,0.2); }
   .card-shadow { box-shadow: 0 4px 0 rgba(0,0,0,0.15), 0 6px 12px rgba(0,0,0,0.1); }
   .card-shadow:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,0.15), 0 3px 6px rgba(0,0,0,0.1); }
@@ -77,7 +78,6 @@ const sharedStyle = `
   }
   .coin-flipping { animation: coin-spin 2.5s cubic-bezier(.35,.05,.35,1) forwards; }
 `;
-
 // ============================================================================
 // MAIN APP
 // ============================================================================
