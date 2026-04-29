@@ -1603,4 +1603,3 @@ function FinishedScreen({ sharedStyle, teamNames, scores, breakdown, winnerIdx, 
     </div>
   );
 }
-}
