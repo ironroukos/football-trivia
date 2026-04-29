@@ -697,7 +697,9 @@ function TransferQuestion({ question, onFinish, onAward, onResolved, activePower
   return (
     <>
       <div className="bg-stone-800 rounded-t-xl py-2 px-4 text-center">
-        <span className="handwritten text-xl text-white">Καλοκαίρι {question.year}</span>
+        <span className="handwritten text-xl text-white">
+          {question.question} {question.year}
+        </span>
       </div>
       <div className="bg-green-600 rounded-b-xl p-4 mb-4 flex items-center justify-around">
         <span className="handwritten text-2xl text-white font-bold">{question.from}</span>
@@ -708,7 +710,7 @@ function TransferQuestion({ question, onFinish, onAward, onResolved, activePower
       <AnswerInput question={question} onFinish={onFinish} onAward={onAward} onResolved={onResolved} activePowerUp={activePowerUp} />
     </>
   );
-}
+          }
 
 function CareerTableQuestion({ question, onFinish, onAward, onResolved, activePowerUp }) {
 
