@@ -1211,52 +1211,187 @@ function LandingPage({ sharedStyle, teamNames, onStart }) {
 // COIN FLIP
 // ============================================================================
 function CoinFlip({ sharedStyle, teamNames, onComplete }) {
-  const [phase, setPhase] = useState('ready');
-  const [winnerIdx, setWinnerIdx] = useState(null);
+  const [phase, setPhase] = useState('loading'); // loading | ready | team1 | team2 | reveal | choose
+  const [question, setQuestion] = useState(null);
+  const [guesses, setGuesses] = useState(['', '']);
+  const [input, setInput] = useState('');
+  const [winner, setWinner] = useState(null);
 
-  const startFlip = () => {
-    const winner = Math.random() < 0.5 ? 0 : 1;
-    setWinnerIdx(winner);
-    setPhase('flipping');
-    setTimeout(() => setPhase('result'), 2700);
-  };
+  useEffect(() => {
+    fetch('/api/coinflip')
+      .then(r => r.json())
+      .then(q => { setQuestion(q); setPhase('ready'); })
+      .catch(() => setPhase('error'));
+  }, []);
 
-  const winnerColor = winnerIdx === 0 ? 'text-red-600' : 'text-blue-700';
-  const winnerBg = winnerIdx === 0 ? 'bg-red-600' : 'bg-blue-700';
+  function handleGuess() {
+    if (!input.trim() || isNaN(parseInt(input))) return;
+    const val = parseInt(input);
+
+    if (phase === 'team1') {
+      setGuesses([val, '']);
+      setInput('');
+      setPhase('team2');
+    } else if (phase === 'team2') {
+      const g0 = guesses[0];
+      const g1 = val;
+      const correct = parseInt(question.answer.replace(/\D/g, ''), 10);
+      const diff0 = Math.abs(g0 - correct);
+      const diff1 = Math.abs(g1 - correct);
+      // Σε ισοπαλία κερδίζει η 1η ομάδα (δεν είδε την απάντηση της άλλης)
+      const w = diff0 <= diff1 ? 0 : 1;
+      setGuesses([g0, g1]);
+      setWinner(w);
+      setPhase('reveal');
+    }
+  }
+
+  const winnerColor = winner === 0 ? 'text-red-600' : 'text-blue-700';
+  const winnerBg = winner === 0 ? 'bg-red-600' : 'bg-blue-700';
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-50 p-4 flex flex-col items-center justify-center" style={{ fontFamily: "'Patrick Hand', cursive" }}>
       <style>{sharedStyle}</style>
-      <div className="max-w-md w-full text-center">
-        <h2 className="handwritten text-3xl text-stone-800 font-bold mb-2">Ποιος ξεκινάει;</h2>
-        <p className="body-font text-stone-600 mb-8">{teamNames[0]} <span className="text-stone-400 mx-2">vs</span> {teamNames[1]}</p>
-        <div className="flex justify-center mb-8" style={{ perspective: '1000px' }}>
-          <div
-            className={`w-40 h-40 rounded-full flex items-center justify-center font-bold text-white shadow-2xl ${phase === 'flipping' ? 'coin-flipping' : ''} ${phase === 'result' ? winnerBg : ''}`}
-            style={{
-              background: phase === 'result' ? undefined : 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)',
-              border: '6px solid rgba(0,0,0,0.15)',
-            }}
-          >
-            {phase !== 'result' && <Beer size={72} strokeWidth={2.5} />}
-            {phase === 'result' && <span className="handwritten text-3xl leading-none px-2 text-center">{teamNames[winnerIdx]}</span>}
-          </div>
+      <div className="max-w-md w-full">
+
+        <div className="text-center mb-6">
+          <h2 className="handwritten text-3xl text-stone-800 font-bold mb-1">Ποιος ξεκινάει;</h2>
+          <p className="body-font text-stone-500">{teamNames[0]} <span className="mx-2 text-stone-300">vs</span> {teamNames[1]}</p>
         </div>
-        {phase === 'ready' && <button onClick={startFlip} className="body-font bg-stone-800 text-white py-3 px-8 rounded-xl text-lg font-bold hover:bg-stone-700 transition">🪙 Ρίξε το κέρμα</button>}
-        {phase === 'flipping' && <p className="handwritten text-2xl text-stone-600 italic animate-pulse">Στρίβει…</p>}
-        {phase === 'result' && (
-          <div className="space-y-4">
-            <p className="handwritten text-3xl font-bold">
-              <span className={winnerColor}>{teamNames[winnerIdx]}</span>
-              <span className="text-stone-800"> ξεκινάει!</span>
-            </p>
-            <button onClick={() => onComplete(winnerIdx)} className="body-font bg-stone-800 text-white py-3 px-8 rounded-xl text-lg font-bold hover:bg-stone-700 transition">Ας παίξουμε →</button>
+
+        {/* LOADING */}
+        {phase === 'loading' && (
+          <p className="body-font text-center text-stone-500 animate-pulse">Φόρτωση ερώτησης…</p>
+        )}
+
+        {/* ERROR */}
+        {phase === 'error' && (
+          <div className="text-center space-y-3">
+            <p className="body-font text-red-500">Δεν φορτώθηκε ερώτηση.</p>
+            <button onClick={() => onComplete(0)} className="body-font bg-stone-800 text-white py-2 px-6 rounded-xl">
+              Συνέχεια χωρίς ερώτηση
+            </button>
           </div>
         )}
+
+        {/* READY */}
+        {phase === 'ready' && (
+          <div className="bg-white rounded-2xl p-5 card-shadow text-center space-y-4">
+            <p className="body-font text-stone-500 text-sm uppercase tracking-wide">Ερώτηση νομίσματος</p>
+            <p className="body-font text-stone-800 text-lg font-bold leading-snug">{question.q}</p>
+            <p className="body-font text-stone-500 text-sm">Κάθε ομάδα δίνει μια εκτίμηση — ο πιο κοντά διαλέγει σειρά</p>
+            <button
+              onClick={() => setPhase('team1')}
+              className="body-font w-full bg-stone-800 text-white py-3 rounded-xl text-lg font-bold hover:bg-stone-700 transition">
+              Ξεκινάμε →
+            </button>
+          </div>
+        )}
+
+        {/* TEAM 1 GUESS */}
+        {phase === 'team1' && (
+          <div className="bg-red-50 border-4 border-red-500 rounded-2xl p-5 card-shadow space-y-4">
+            <p className="body-font text-red-600 font-bold text-center text-lg">🔴 {teamNames[0]}</p>
+            <p className="body-font text-stone-800 font-bold text-center leading-snug">{question.q}</p>
+            <input
+              type="number"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleGuess()}
+              placeholder="Εκτίμηση σε λεπτά..."
+              className="body-font w-full border-2 border-red-300 rounded-xl px-4 py-3 text-lg text-stone-900 focus:outline-none focus:border-red-500"
+              autoFocus
+            />
+            <button
+              onClick={handleGuess}
+              disabled={!input.trim()}
+              className="body-font w-full bg-red-600 text-white py-3 rounded-xl text-lg font-bold hover:bg-red-700 disabled:opacity-40 transition">
+              Κλείδωμα →
+            </button>
+          </div>
+        )}
+
+        {/* TEAM 2 GUESS */}
+        {phase === 'team2' && (
+          <div className="bg-blue-50 border-4 border-blue-500 rounded-2xl p-5 card-shadow space-y-4">
+            <p className="body-font text-blue-700 font-bold text-center text-lg">🔵 {teamNames[1]}</p>
+            <p className="body-font text-stone-800 font-bold text-center leading-snug">{question.q}</p>
+            <input
+              type="number"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleGuess()}
+              placeholder="Εκτίμηση σε λεπτά..."
+              className="body-font w-full border-2 border-blue-300 rounded-xl px-4 py-3 text-lg text-stone-900 focus:outline-none focus:border-blue-500"
+              autoFocus
+            />
+            <button
+              onClick={handleGuess}
+              disabled={!input.trim()}
+              className="body-font w-full bg-blue-700 text-white py-3 rounded-xl text-lg font-bold hover:bg-blue-800 disabled:opacity-40 transition">
+              Κλείδωμα →
+            </button>
+          </div>
+        )}
+
+        {/* REVEAL */}
+        {phase === 'reveal' && (
+          <div className="space-y-4">
+            <div className="bg-white rounded-2xl p-4 card-shadow text-center">
+              <p className="body-font text-stone-500 text-sm mb-1">{question.q}</p>
+              <p className="body-font text-stone-500 text-sm">Σωστή απάντηση</p>
+              <span className="handwritten text-5xl font-bold text-amber-600">
+                {question.answer}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              {[0, 1].map(i => {
+                const correct = parseInt(question.answer.replace(/\D/g, ''), 10);
+                const diff = Math.abs(guesses[i] - correct);
+                const isWinner = i === winner;
+                return (
+                  <div key={i} className={`rounded-xl p-3 text-center border-4 transition-all ${
+                    isWinner
+                      ? i === 0 ? 'bg-red-50 border-red-500' : 'bg-blue-50 border-blue-500'
+                      : 'bg-stone-100 border-stone-200 opacity-50'
+                  }`}>
+                    <p className={`body-font text-xs font-bold uppercase mb-1 ${i === 0 ? 'text-red-600' : 'text-blue-700'}`}>
+                      {i === 0 ? '🔴' : '🔵'} {teamNames[i]}
+                    </p>
+                    <p className="handwritten text-3xl font-bold text-stone-800">{guesses[i]}'</p>
+                    <p className="body-font text-xs text-stone-400">διαφορά {diff}'</p>
+                    {isWinner && <p className="handwritten text-base text-green-600 font-bold mt-1">✓ Επιλέγει!</p>}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className={`rounded-xl py-3 text-center ${winnerBg}`}>
+              <span className="handwritten text-2xl text-white font-bold">
+                {teamNames[winner]} επιλέγει σειρά!
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => onComplete(winner)}
+                className="body-font bg-stone-800 text-white py-3 rounded-xl font-bold hover:bg-stone-700">
+                Παίζω 1ος 🥇
+              </button>
+              <button
+                onClick={() => onComplete(winner === 0 ? 1 : 0)}
+                className="body-font bg-stone-500 text-white py-3 rounded-xl font-bold hover:bg-stone-400">
+                Παίζω 2ος
+              </button>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );
-}
+                }
 
 // ============================================================================
 // TIEBREAKER
