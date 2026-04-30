@@ -520,7 +520,7 @@ function QuestionModal({ question, onFinish, onAward, onResolved, activePowerUp,
           <button onClick={onFinish} className="text-stone-500 hover:text-stone-800"><X size={24} /></button>
         </div>
 
-        {!activePowerUp && question.type !== 'top5' && (
+        {!activePowerUp && question.type !== 'top5' && question.type !== 'clubcombo' && (
           <div className="flex gap-2 mb-4">
             <button
               onClick={() => onUsePowerUp('fifty')}
