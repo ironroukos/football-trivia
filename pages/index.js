@@ -734,26 +734,39 @@ function CareerTableQuestion({ question, onFinish, onAward, onResolved, activePo
 
 function WhosMissingQuestion({ question, onAward, onSkip, multiplier, activePowerUp, onUsePowerUp }) {
   const [input, setInput] = useState('');
-  const [result, setResult] = useState(null); // null | 'correct' | 'wrong'
+  const [result, setResult] = useState(null);
   const [verifying, setVerifying] = useState(false);
-  const [hint, setHint] = useState(null);
- 
-  async function handleSubmit() {
-    if (verifying || result) return;
+  const [fiftyOptions, setFiftyOptions] = useState(null); // [{label, correct}]
+
+  // Όταν ενεργοποιηθεί το 50/50, φτιάχνουμε τις δύο επιλογές
+  useEffect(() => {
+    if (activePowerUp === 'fifty' && !fiftyOptions) {
+      const correct = question.answer.split('|')[0];
+      const wrong   = question.fiftyWrong || '???';
+      const opts = [
+        { label: correct, correct: true },
+        { label: wrong,   correct: false },
+      ];
+      // Τυχαία σειρά
+      setFiftyOptions(Math.random() < 0.5 ? opts : [opts[1], opts[0]]);
+    }
+  }, [activePowerUp, fiftyOptions, question]);
+
+  async function handleSubmit(answerText) {
+    const ans = answerText ?? input;
+    if (verifying || result || !ans.trim()) return;
     setVerifying(true);
- 
-    // Local normalize check first
-    const normInput = normalize(input);
+
+    const normInput = normalize(ans);
     const acceptedAnswers = question.answer.split('|').map(normalize);
- 
+
     if (acceptedAnswers.includes(normInput)) {
       setResult('correct');
       setVerifying(false);
       onAward(multiplier);
       return;
     }
- 
-    // Claude verify
+
     try {
       const res = await fetch('/api/verify', {
         method: 'POST',
@@ -761,71 +774,56 @@ function WhosMissingQuestion({ question, onAward, onSkip, multiplier, activePowe
         body: JSON.stringify({
           question: question.question,
           sheetAnswer: question.answer,
-          userAnswer: input,
+          userAnswer: ans,
         }),
       });
       const data = await res.json();
-      if (data.correct) {
-        setResult('correct');
-        onAward(multiplier);
-      } else {
-        setResult('wrong');
-        onAward(0);
-      }
+      if (data.correct) { setResult('correct'); onAward(multiplier); }
+      else               { setResult('wrong');   onAward(0); }
     } catch {
       setResult('wrong');
       onAward(0);
     }
     setVerifying(false);
   }
- 
-  function use5050() {
-    if (!onUsePowerUp || activePowerUp !== '5050') return;
-    // For Who's Missing, 50/50 reveals first letter as hint
-    setHint(`Αρχικό: ${question.answer.split('|')[0][0].toUpperCase()}`);
-    onUsePowerUp();
-  }
- 
+
   return (
     <div className="space-y-3">
-      {/* Image */}
+
+      {/* Match title */}
+      <p className="text-center font-bold text-lg text-stone-800">{question.question}</p>
+      <p className="text-center text-stone-500 text-sm">Ποιος λείπει από την 11άδα;</p>
+
+      {/* Ολόκληρη η εικόνα */}
       {question.image_url && (
-        <img
-          src={question.image_url}
-          alt="Who's missing?"
-          className="w-full rounded-xl object-cover max-h-64"
-        />
-      )}
- 
-      {/* Question text */}
-      <p className="text-center font-semibold text-gray-700">{question.question}</p>
- 
-      {/* Hint from 50/50 */}
-      {hint && (
-        <p className="text-center text-amber-600 font-bold">{hint}</p>
-      )}
- 
-      {/* Result */}
-      {result === 'correct' && (
-        <div className="bg-green-100 border border-green-400 rounded-lg p-3 text-center">
-          <p className="text-green-700 font-bold">✓ Σωστό!</p>
-          <button onClick={onSkip} className="mt-2 bg-stone-700 text-white px-4 py-1 rounded-lg font-bold">
-            Επόμενο →
-          </button>
+        <div className="w-full rounded-xl overflow-hidden bg-black">
+          <img
+            src={question.image_url}
+            alt="Formation"
+            className="w-full h-auto object-contain"
+            style={{ maxHeight: '320px' }}
+          />
         </div>
       )}
- 
-      {result === 'wrong' && (
-        <div className="bg-red-100 border border-red-400 rounded-lg p-3 text-center">
-          <p className="text-red-700 font-bold">✗ Λάθος!</p>
-          <p className="text-sm text-gray-600">Σωστό: {question.answer.split('|')[0]}</p>
-          <button onClick={onSkip} className="mt-2 bg-stone-700 text-white px-4 py-1 rounded-lg font-bold">
-            Επόμενο →
-          </button>
+
+      {/* 50/50 επιλογές */}
+      {fiftyOptions && !result && (
+        <div className="flex gap-3">
+          {fiftyOptions.map((opt, i) => (
+            <button
+              key={i}
+              onClick={() => handleSubmit(opt.label)}
+              disabled={verifying}
+              className="flex-1 bg-cyan-100 border-2 border-cyan-500 text-cyan-900 font-bold py-3 rounded-xl hover:bg-cyan-200 disabled:opacity-50 transition"
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
       )}
- 
-      {!result && (
+
+      {/* Free-text input (όταν ΔΕΝ είναι 50/50) */}
+      {!fiftyOptions && !result && (
         <div className="flex gap-2">
           <input
             className="flex-1 border-2 border-gray-300 rounded-lg p-2 focus:outline-none focus:border-blue-500"
@@ -837,20 +835,32 @@ function WhosMissingQuestion({ question, onAward, onSkip, multiplier, activePowe
             disabled={verifying}
           />
           <button
-            onClick={handleSubmit}
+            onClick={() => handleSubmit()}
             disabled={verifying}
             className="bg-blue-600 text-white px-4 rounded-lg font-bold hover:bg-blue-700 disabled:opacity-50">
             {verifying ? '...' : 'OK'}
           </button>
         </div>
       )}
- 
-      {/* 50/50 for this category gives a letter hint */}
-      {activePowerUp === '5050' && !result && !hint && (
-        <button onClick={use5050}
-          className="w-full text-xs text-amber-600 underline">
-          Χρησιμοποίησε 50/50 (αποκαλύπτει αρχικό γράμμα)
-        </button>
+
+      {/* Αποτελέσματα */}
+      {result === 'correct' && (
+        <div className="bg-green-100 border border-green-400 rounded-lg p-3 text-center">
+          <p className="text-green-700 font-bold">✓ Σωστό!</p>
+          <button onClick={onSkip} className="mt-2 bg-stone-700 text-white px-4 py-1 rounded-lg font-bold">
+            Επόμενο →
+          </button>
+        </div>
+      )}
+
+      {result === 'wrong' && (
+        <div className="bg-red-100 border border-red-400 rounded-lg p-3 text-center">
+          <p className="text-red-700 font-bold">✗ Λάθος!</p>
+          <p className="text-sm text-gray-600">Σωστό: {question.answer.split('|')[0]}</p>
+          <button onClick={onSkip} className="mt-2 bg-stone-700 text-white px-4 py-1 rounded-lg font-bold">
+            Επόμενο →
+          </button>
+        </div>
       )}
     </div>
   );
