@@ -91,21 +91,18 @@ function buildQuestion(row, name, slotIndex) {
     image_url: null,
   };
       
-    case 'whomissing':
-    case 'imageText':
-    case 'logo':
-      // Sheet: question (= image URL) | answer
-      // Το question είναι το URL της εικόνας
-      return {
-        type,
-        category: name,
-        multiplier,
-        slotIndex,
-        question:  isImageUrl(row.question) ? '' : row.question,
-        answer:    row.answer || '',
-        image_url: isImageUrl(row.question) ? row.question.trim() : null,
-      };
-
+  case 'whomissing':
+  return {
+    type,
+    category: name,
+    multiplier,
+    slotIndex,
+    question:  row.question  || '',          // π.χ. "Arsenal v Olympiacos 2-"
+    answer:    row.answer    || '',           // π.χ. "Odegaard"
+    image_url: row.img_url   || row['img_url'] || null,   // URL της 11άδας
+    fiftyWrong: row['50-50 help'] || '',     // π.χ. "Rice"
+  };
+      
     case 'top5':
     case 'clubcombo':
     case 'text':
