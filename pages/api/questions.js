@@ -3,10 +3,10 @@
 const CATEGORY_MULTIPLIERS = {
   'History': 2,
   'Geography': 2,
-  'Logo Quiz': 2,
+  'Logo Quiz': 1,
   'Retro Transfers': 2,
   'Player ID': 2,
-  'Club Combo': 2,
+  'Higher/Lower': 1,
   "Who's Missing": 3,
   'Top 5': 3,
 };
@@ -17,7 +17,7 @@ const CATEGORY_TYPES = {
   'Logo Quiz':        'logo',
   'Retro Transfers':  'transfer',
   'Player ID':        'imageText',
-  'Club Combo':       'clubcombo',
+  'Higher/Lower':     'higherlower',
   "Who's Missing":    'whomissing',
   'Top 5':            'top5',
 };
@@ -30,7 +30,7 @@ const CATEGORY_ENVS = [
   { name: 'Logo Quiz',        url: process.env.SHEET_Logo_Quiz },
   { name: 'Retro Transfers',  url: process.env.SHEET_Retro_Transfers },
   { name: 'Player ID',        url: process.env.SHEET_Player_ID },
-  { name: 'Club Combo',       url: process.env.SHEET_Club_Combo },
+  { name: 'Higher/Lower',     url: process.env.SHEET_Higher_Lower },
   { name: "Who's Missing",    url: process.env.SHEET_Whos_Missing },
   { name: 'Top 5',            url: process.env.SHEET_Top_5 },
 ];
@@ -64,7 +64,7 @@ function parseCsv(csvText) {
     headers.forEach((h, i) => { row[h] = cols[i] || ''; });
     return row;
   }).filter(row => {
-    return (row.question || row.period) && (row.answer || row.player);
+    return (row.question || row.subject) && (row.answer || row.value || row.values);
   });
 }
 
@@ -72,64 +72,78 @@ function buildQuestion(row, name, slotIndex) {
   const type = CATEGORY_TYPES[name] || 'text';
   const multiplier = CATEGORY_MULTIPLIERS[name] || 1;
 
-  const isImageUrl = (str) => str && str.trim().startsWith('http');
-
   switch (type) {
 
     case 'transfer':
-  // Sheet: period | year | from | to | player
-  return {
-    type,
-    category: name,
-    multiplier,
-    slotIndex,
-    question: row.period  || row.question || '',
-    answer:   row.player  || row.answer   || '',
-    from:     row.from    || '',
-    to:       row.to      || '',
-    year:     row.year    || '',
-    image_url: null,
-  };
+      return {
+        type,
+        category: name,
+        multiplier,
+        slotIndex,
+        question: row.period  || row.question || '',
+        answer:   row.player  || row.answer   || '',
+        from:     row.from    || '',
+        to:       row.to      || '',
+        year:     row.year    || '',
+        image_url: null,
+      };
 
-      case 'logo':
-  return {
-    type,
-    category: name,
-    multiplier,
-    slotIndex,
-    question:  row.question    || '',
-    answer:    row.answer      || '',
-    image_url: row['img_url']  || null,
-  };
+    case 'logo':
+      return {
+        type,
+        category: name,
+        multiplier,
+        slotIndex,
+        question:  row.question    || '',
+        answer:    row.answer      || '',
+        image_url: row['img_url']  || null,
+      };
 
-case 'imageText':
-  return {
-    type,
-    category: name,
-    multiplier,
-    slotIndex,
-    question:  row.question    || '',
-    answer:    row.answer      || '',
-    image_url: row['img_url']  || null,
-  };
+    case 'imageText':
+      return {
+        type,
+        category: name,
+        multiplier,
+        slotIndex,
+        question:  row.question    || '',
+        answer:    row.answer      || '',
+        image_url: row['img_url']  || null,
+      };
 
-case 'whomissing':
-  return {
-    type,
-    category: name,
-    multiplier,
-    slotIndex,
-    question:   row.question      || '',
-    answer:     row.answer        || '',
-    image_url:  row['img_url']    || null,
-    fiftyWrong: row['50-50 help'] || '',
-  };
-      
+    case 'whomissing':
+      return {
+        type,
+        category: name,
+        multiplier,
+        slotIndex,
+        question:   row.question      || '',
+        answer:     row.answer        || '',
+        image_url:  row['img_url']    || null,
+        fiftyWrong: row['50-50 help'] || '',
+      };
+
+    // -------------------------------------------------------------------------
+    // HIGHER / LOWER
+    // Sheet columns:
+    //   subject  — the comparison theme  (e.g. "Ακριβότερη μεταγραφή")
+    //   values   — the two options       (e.g. "Sancho & Antony")
+    //   answer   — the correct one       (e.g. "Antony")
+    // -------------------------------------------------------------------------
+    case 'higherlower':
+      return {
+        type,
+        category: name,
+        multiplier,
+        slotIndex,
+        subject:  row.subject || '',
+        values:   row.values  || '',
+        answer:   row.answer  || '',
+        image_url: null,
+      };
+
     case 'top5':
-    case 'clubcombo':
     case 'text':
     default:
-      // Sheet: question | answer
       return {
         type,
         category: name,
@@ -147,7 +161,7 @@ export default async function handler(req, res) {
     const tabs = CATEGORY_ENVS.filter(c => c.url);
 
     if (tabs.length === 0) {
-      return res.status(500).json({ error: 'No category URLs set — check Vercel env variables' });
+      return res.status(500).json({ error: 'No category URLs set — check env variables' });
     }
 
     const results = await Promise.all(
