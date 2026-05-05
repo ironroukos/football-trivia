@@ -64,7 +64,7 @@ function parseCsv(csvText) {
     headers.forEach((h, i) => { row[h] = cols[i] || ''; });
     return row;
   }).filter(row => {
-    return (row.question || row.subject) && (row.answer || row.value || row.values);
+    return (row.question || row.subject || row.period) && (row.answer || row.player || row.values);
   });
 }
 
@@ -122,13 +122,6 @@ function buildQuestion(row, name, slotIndex) {
         fiftyWrong: row['50-50 help'] || '',
       };
 
-    // -------------------------------------------------------------------------
-    // HIGHER / LOWER
-    // Sheet columns:
-    //   subject  — the comparison theme  (e.g. "Ακριβότερη μεταγραφή")
-    //   values   — the two options       (e.g. "Sancho & Antony")
-    //   answer   — the correct one       (e.g. "Antony")
-    // -------------------------------------------------------------------------
     case 'higherlower':
       return {
         type,
@@ -164,21 +157,24 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'No category URLs set — check env variables' });
     }
 
-    const results = [];
-    for (const { name, url } of tabs) {
-      try {
-        const response = await fetch(url);
-        const csv = await response.text();
-        const rows = parseCsv(csv);
-        const picked = shuffle(rows).slice(0, QUESTIONS_PER_CATEGORY);
-        const questions = picked.map((row, slotIndex) => buildQuestion(row, name, slotIndex));
-        results.push({ name, questions });
-      } catch (err) {
-        console.error(`Failed to fetch tab: ${name}`, err);
-        results.push({ name, questions: [] });
+    const fetchTab = async ({ name, url }) => {
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const response = await fetch(url);
+          const csv = await response.text();
+          const rows = parseCsv(csv);
+          const picked = shuffle(rows).slice(0, QUESTIONS_PER_CATEGORY);
+          const questions = picked.map((row, slotIndex) => buildQuestion(row, name, slotIndex));
+          return { name, questions };
+        } catch (err) {
+          console.error(`Failed to fetch ${name} (attempt ${attempt}):`, err.message);
+          if (attempt < 3) await new Promise(r => setTimeout(r, 200 * attempt));
+        }
       }
-      await new Promise(r => setTimeout(r, 100));
-    }
+      return { name, questions: [] };
+    };
+
+    const results = await Promise.all(tabs.map(fetchTab));
 
     const questions = {};
     results.forEach(({ name, questions: qs }) => {
