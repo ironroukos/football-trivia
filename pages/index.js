@@ -7,10 +7,10 @@ import { normalize } from '../lib/normalize'
 const CATEGORIES = [
   { name: 'History',         multipliers: [2, 2],    bg: '#8B4A2B', textColor: '#fff5e6' },
   { name: 'Geography',       multipliers: [2, 2],    bg: '#4A9FD9', textColor: '#ffffff' },
-  { name: 'Logo Quiz',       multipliers: [2, 2],    bg: '#C8102E', textColor: '#ffffff' },
+  { name: 'Logo Quiz',       multipliers: [1, 1],    bg: '#C8102E', textColor: '#ffffff' },
   { name: 'Retro Transfers', multipliers: [2, 2],    bg: '#1B4E7C', textColor: '#ffffff' },
   { name: 'Player ID',       multipliers: [2, 2],    bg: '#7B3FBF', textColor: '#ffffff' },
-  { name: 'Club Combo',      multipliers: [2, 2],    bg: '#EA7E1E', textColor: '#ffffff' },
+  { name: 'Higher/Lower',    multipliers: [1, 1],    bg: '#EA7E1E', textColor: '#ffffff' },
   { name: "Who's Missing",   multipliers: [3, 3],    bg: '#7BC142', textColor: '#f5ffe8' },
   { name: 'Top 5',           multipliers: [3, 3],    bg: '#4A7C28', textColor: '#f5ffe8' },
 ];
@@ -543,7 +543,7 @@ function QuestionModal({ question, onFinish, onAward, onResolved, activePowerUp,
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto modal-scroll px-4 pb-4">
-          {!activePowerUp && question.type !== 'top5' && question.type !== 'clubcombo' && (
+          {!activePowerUp && question.type !== 'top5' && question.type !== 'higherlower' && (
             <div className="flex gap-2 mb-3">
               <button
                 onClick={() => onUsePowerUp('fifty')}
@@ -567,7 +567,7 @@ function QuestionModal({ question, onFinish, onAward, onResolved, activePowerUp,
               case 'transfer':    return <TransferQuestion {...props} />;
               case 'careerTable': return <CareerTableQuestion {...props} />;
               case 'whomissing':  return <WhosMissingQuestion {...props} />;
-              case 'clubcombo':   return <ClubComboQuestion {...props} />;
+              case 'higherlower': return <HigherLowerQuestion {...props} />;
               case 'top5':        return <Top5Question {...props} />;
               default:            return <TextQuestion {...props} />;
             }
@@ -1073,113 +1073,99 @@ function Top5Question({ question, multiplier, onAward, onFinish }) {
   );
 }
 
-function ClubComboQuestion({ question, onAward, onSkip, multiplier }) {
-  const [input, setInput] = useState('');
-  const [result, setResult] = useState(null);
-  const [verifying, setVerifying] = useState(false);
-  const inputRef = useRef(null);
+// ============================================================================
+// HIGHER / LOWER QUESTION
+// Sheet columns:
+//   subject  — the comparison theme  (e.g. "Ακριβότερη μεταγραφή")
+//   values   — the two options       (e.g. "Sancho & Antony")
+//   answer   — the correct one       (e.g. "Antony")
+// ============================================================================
+function HigherLowerQuestion({ question, onAward, onSkip, multiplier }) {
+  const subject = question.subject || question.question || '';
+  // Parse "A & B" — support & or vs or |
+  const rawValues = question.values || question.q || '';
+  const parts = rawValues.split(/\s*[&|]\s*|\s+vs\s+/i).map(s => s.trim()).filter(Boolean);
+  const optionA = parts[0] || 'Option A';
+  const optionB = parts[1] || 'Option B';
+  const correctAnswer = normalize(question.answer || '');
 
-  async function handleSubmit() {
-    if (verifying || result) return;
-    inputRef.current?.blur();
-    setVerifying(true);
+  const [picked, setPicked] = useState(null);   // 'A' | 'B'
+  const [revealed, setRevealed] = useState(false);
 
-    const normInput = normalize(input);
-    const acceptedAnswers = question.answer.split('|').map(normalize);
+  const correctOption = normalize(optionA) === correctAnswer ? 'A' : 'B';
 
-    if (acceptedAnswers.includes(normInput)) {
-      setResult('correct');
-      setVerifying(false);
-      onAward(multiplier);
-      return;
-    }
-
-    try {
-      const res = await fetch('/api/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question: `Club Combo: ${question.question}. Find a player who played for BOTH clubs.`,
-          sheetAnswer: question.answer,
-          userAnswer: input,
-        }),
-      });
-      const data = await res.json();
-      if (data.correct) {
-        setResult('correct');
-        onAward(multiplier);
-      } else {
-        setResult('wrong');
-        onAward(0);
-      }
-    } catch {
-      setResult('wrong');
-      onAward(0);
-    }
-    setVerifying(false);
+  function handlePick(choice) {
+    if (revealed) return;
+    setPicked(choice);
+    setRevealed(true);
+    onAward(choice === correctOption ? multiplier : 0);
   }
 
-  const teamMatch = question.question.match(/^(.+?)\s*[&×+]\s*(.+)$/);
-  const teamA = teamMatch?.[1]?.trim();
-  const teamB = teamMatch?.[2]?.trim();
+  function btnStyle(choice) {
+    const base = 'w-full py-5 px-4 rounded-2xl body-font text-xl font-bold border-4 transition active:scale-95 min-h-[72px] flex items-center justify-center text-center leading-snug';
+    if (!revealed) {
+      return choice === 'A'
+        ? `${base} bg-blue-50 border-blue-500 text-blue-900`
+        : `${base} bg-red-50 border-red-500 text-red-900`;
+    }
+    const isCorrect  = choice === correctOption;
+    const wasPicked  = choice === picked;
+    if (isCorrect)             return `${base} bg-green-100 border-green-600 text-green-900`;
+    if (wasPicked && !isCorrect) return `${base} bg-red-100 border-red-600 text-red-900`;
+    return `${base} bg-stone-100 border-stone-300 text-stone-400 opacity-50`;
+  }
 
   return (
-    <div className="space-y-3">
-      {teamA && teamB ? (
-        <div className="flex items-center justify-center gap-3 py-2">
-          <div className="bg-blue-600 text-white px-3 py-2.5 rounded-xl font-bold text-center flex-1 body-font">
-            {teamA}
-          </div>
-          <span className="text-2xl font-black text-gray-400 flex-shrink-0">&</span>
-          <div className="bg-red-600 text-white px-3 py-2.5 rounded-xl font-bold text-center flex-1 body-font">
-            {teamB}
-          </div>
+    <div className="space-y-4">
+      {/* Theme banner */}
+      <div className="bg-orange-600 rounded-2xl py-3 px-4 text-center">
+        <p className="body-font text-orange-200 text-xs uppercase tracking-widest mb-0.5">Ποιο είναι υψηλότερο/μεγαλύτερο;</p>
+        <p className="handwritten text-2xl text-white font-bold leading-tight">{subject}</p>
+      </div>
+
+      {/* The two options */}
+      <div className="space-y-3">
+        <button onClick={() => handlePick('A')} disabled={revealed} className={btnStyle('A')}>
+          {revealed && correctOption === 'A' && <span className="mr-2 text-green-600 text-2xl">✓</span>}
+          {revealed && picked === 'A' && correctOption !== 'A' && <span className="mr-2 text-red-500 text-2xl">✗</span>}
+          <span>{optionA}</span>
+        </button>
+
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-px bg-stone-300" />
+          <span className="body-font text-stone-400 text-sm font-bold">VS</span>
+          <div className="flex-1 h-px bg-stone-300" />
         </div>
-      ) : (
-        <p className="text-center font-semibold text-gray-700 body-font">{question.question}</p>
-      )}
 
-      <p className="text-center text-sm text-gray-500 body-font">
-        Βρες παίκτη που αγωνίστηκε και στις δύο ομάδες
-      </p>
+        <button onClick={() => handlePick('B')} disabled={revealed} className={btnStyle('B')}>
+          {revealed && correctOption === 'B' && <span className="mr-2 text-green-600 text-2xl">✓</span>}
+          {revealed && picked === 'B' && correctOption !== 'B' && <span className="mr-2 text-red-500 text-2xl">✗</span>}
+          <span>{optionB}</span>
+        </button>
+      </div>
 
-      {result === 'correct' && (
-        <div className="bg-green-100 border border-green-400 rounded-lg p-3 text-center">
-          <p className="text-green-700 font-bold body-font">✓ Σωστό!</p>
-          <button onClick={onSkip} className="mt-2 bg-stone-700 text-white px-6 py-2.5 rounded-lg font-bold min-h-[44px] body-font">
+      {/* Result */}
+      {revealed && (
+        <>
+          <div className={`rounded-xl p-3 text-center border-2 ${
+            picked === correctOption ? 'bg-green-100 border-green-500' : 'bg-red-100 border-red-500'
+          }`}>
+            <p className={`handwritten text-2xl font-bold ${
+              picked === correctOption ? 'text-green-700' : 'text-red-700'
+            }`}>
+              {picked === correctOption ? '✓ Σωστά!' : '✗ Λάθος!'}
+            </p>
+            {picked !== correctOption && (
+              <p className="body-font text-stone-600 text-sm mt-1">
+                Σωστό: <strong>{correctOption === 'A' ? optionA : optionB}</strong>
+              </p>
+            )}
+          </div>
+
+          <button onClick={onSkip} className="body-font w-full bg-stone-800 text-white py-3 rounded-xl font-bold active:bg-stone-700 min-h-[48px]">
             Επόμενο →
           </button>
-        </div>
-      )}
-
-      {result === 'wrong' && (
-        <div className="bg-red-100 border border-red-400 rounded-lg p-3 text-center">
-          <p className="text-red-700 font-bold body-font">✗ Λάθος!</p>
-          <p className="text-sm text-gray-600 body-font">Ένας σωστός: {question.answer.split('|')[0]}</p>
-          <button onClick={onSkip} className="mt-2 bg-stone-700 text-white px-6 py-2.5 rounded-lg font-bold min-h-[44px] body-font">
-            Επόμενο →
-          </button>
-        </div>
-      )}
-
-      {!result && (
-        <div className="flex gap-2">
-          <input
-            ref={inputRef}
-            className="flex-1 border-2 border-gray-300 rounded-lg p-3 focus:outline-none focus:border-blue-500 body-font"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-            placeholder="Όνομα παίκτη..."
-            disabled={verifying}
-          />
-          <button
-            onClick={handleSubmit}
-            disabled={verifying}
-            className="bg-blue-600 text-white px-5 rounded-lg font-bold active:bg-blue-700 disabled:opacity-50 min-w-[60px] min-h-[52px] body-font">
-            {verifying ? '...' : 'OK'}
-          </button>
-        </div>
+        </>
       )}
     </div>
   );
