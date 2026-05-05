@@ -170,6 +170,10 @@ export default async function handler(req, res) {
           const response = await fetch(url);
           const csv = await response.text();
           const rows = parseCsv(csv);
+          if (name === 'Higher/Lower') {
+            console.log('Higher/Lower CSV first 200 chars:', csv.slice(0, 200));
+            console.log('Higher/Lower rows parsed:', rows.length);
+          }
           const picked = shuffle(rows).slice(0, QUESTIONS_PER_CATEGORY);
           const questions = picked.map((row, slotIndex) => buildQuestion(row, name, slotIndex));
           return { name, questions };
@@ -185,6 +189,7 @@ export default async function handler(req, res) {
       questions[name] = qs;
     });
 
+    res.setHeader('Cache-Control', 'no-store');
     res.status(200).json(questions);
   } catch (err) {
     console.error('questions API error:', err);
