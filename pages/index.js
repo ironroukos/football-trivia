@@ -56,7 +56,7 @@ async function generateFiftyFifty(sheetAnswer, category, questionContext = '') {
 }
 
 // ============================================================================
-// SHARED CSS
+// SHARED CSS — MOBILE-FIRST
 // ============================================================================
 const sharedStyle = `
   @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Patrick+Hand&display=swap');
@@ -77,6 +77,20 @@ const sharedStyle = `
     100% { transform: rotateY(2880deg) scale(1); }
   }
   .coin-flipping { animation: coin-spin 2.5s cubic-bezier(.35,.05,.35,1) forwards; }
+
+  /* Mobile safe area support */
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 16px); }
+  
+  /* Prevent iOS zoom on input focus */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+  
+  /* Better tap targets on mobile */
+  button { -webkit-tap-highlight-color: transparent; }
+  
+  /* Smooth scrolling on iOS */
+  .modal-scroll { -webkit-overflow-scrolling: touch; }
 `;
 // ============================================================================
 // MAIN APP
@@ -147,7 +161,7 @@ export default function FootballTrivia() {
       multiplier,
       slotKey: key,
     });
-  };  // ← ΣΩΣΤΟ κλείσιμο του openQuestion
+  };
 
   const handleUsePowerUp = (type) => {
     if (!powerUps[turn][type]) return;
@@ -254,53 +268,57 @@ export default function FootballTrivia() {
 
   // PLAY PHASE
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-50 p-4 pb-10" style={{ fontFamily: "'Patrick Hand', cursive" }}>
+    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-50 px-3 pb-6 safe-bottom" style={{ fontFamily: "'Patrick Hand', cursive" }}>
       <style>{sharedStyle}</style>
 
       <div className="max-w-md mx-auto">
-        <header className="flex items-center justify-center gap-3 pt-4 pb-3">
-          <Beer size={44} className="text-amber-500" strokeWidth={2.5} />
-          <h1 className="handwritten text-4xl font-bold text-stone-800">FOOTBALL TRIVIA</h1>
+        {/* Compact header for mobile */}
+        <header className="flex items-center justify-center gap-2 pt-3 pb-2">
+          <Beer size={36} className="text-amber-500 flex-shrink-0" strokeWidth={2.5} />
+          <h1 className="handwritten text-3xl font-bold text-stone-800 leading-none">FOOTBALL TRIVIA</h1>
         </header>
 
-        <div className="bg-red-600 rounded-2xl py-2 px-4 mb-4 transform -rotate-1 card-shadow">
-          <p className="handwritten text-2xl text-white text-center italic font-semibold">
+        <div className="bg-red-600 rounded-xl py-1.5 px-3 mb-3 transform -rotate-1 card-shadow">
+          <p className="handwritten text-xl text-white text-center italic font-semibold">
             Put some strategy on your game!
           </p>
         </div>
 
         {questionsLoading && (
-          <div className="text-center py-4 body-font text-stone-500 flex items-center justify-center gap-2">
-            <Sparkles size={18} className="animate-spin text-amber-500" />
+          <div className="text-center py-3 body-font text-stone-500 flex items-center justify-center gap-2 text-sm">
+            <Sparkles size={16} className="animate-spin text-amber-500" />
             Φόρτωση ερωτήσεων…
           </div>
         )}
         {questionsError && (
-          <div className="bg-red-100 border-2 border-red-400 rounded-xl p-3 mb-3 text-center body-font text-red-700 text-sm">
-            ⚠️ Αδυναμία φόρτωσης ερωτήσεων: {questionsError}
+          <div className="bg-red-100 border-2 border-red-400 rounded-xl p-2 mb-2 text-center body-font text-red-700 text-xs">
+            ⚠️ Αδυναμία φόρτωσης: {questionsError}
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3 mb-5">
+        {/* Category grid — 2 cols, bigger tap targets */}
+        <div className="grid grid-cols-2 gap-2 mb-4">
           {CATEGORIES.map((cat) => (
             <CategoryCard key={cat.name} category={cat} usedQuestions={usedQuestions} onPick={openQuestion} hasQuestions={(questions[cat.name] || []).length > 0} />
           ))}
         </div>
 
-        <div className="text-center mb-3">
-          <span className="body-font text-lg text-stone-600">
+        {/* Turn indicator */}
+        <div className="text-center mb-2">
+          <span className="body-font text-base text-stone-600">
             Σειρά:{' '}
-            <span className={turn === 0 ? 'text-red-600 font-bold' : 'text-blue-700 font-bold'}>
+            <span className={`font-bold text-lg ${turn === 0 ? 'text-red-600' : 'text-blue-700'}`}>
               {teamNames[turn]}
             </span>
           </span>
         </div>
 
-        <div className="bg-stone-100 rounded-2xl p-4 card-shadow">
-          <div className="bg-white border-2 border-stone-800 rounded-xl py-2 px-8 mx-auto mb-4 w-fit">
-            <h2 className="handwritten text-3xl text-stone-800 font-bold">Score</h2>
+        {/* Score panel */}
+        <div className="bg-stone-100 rounded-2xl p-3 card-shadow">
+          <div className="bg-white border-2 border-stone-800 rounded-xl py-1.5 px-6 mx-auto mb-3 w-fit">
+            <h2 className="handwritten text-2xl text-stone-800 font-bold">Score</h2>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2">
             <TeamPanel
               color="red" name={teamNames[0]} value={scores[0]}
               onChange={(v) => setScores([v, scores[1]])}
@@ -321,15 +339,15 @@ export default function FootballTrivia() {
             />
           </div>
           {activePowerUp === 'x2' && !activeQuestion && (
-            <div className="mt-3 bg-amber-100 border-2 border-amber-500 rounded-xl py-2 px-3 text-center">
-              <span className="handwritten text-xl text-amber-800 font-bold">
-                ⚡ ×2 ενεργό — διάλεξε ερώτηση τώρα!
+            <div className="mt-2 bg-amber-100 border-2 border-amber-500 rounded-xl py-1.5 px-3 text-center">
+              <span className="handwritten text-lg text-amber-800 font-bold">
+                ⚡ ×2 ενεργό — διάλεξε ερώτηση!
               </span>
             </div>
           )}
           <button
             onClick={() => setShowBreakdown(true)}
-            className="mt-3 w-full body-font text-stone-700 bg-white border-2 border-stone-300 hover:bg-stone-50 rounded-xl py-2 text-sm font-bold flex items-center justify-center gap-2"
+            className="mt-2 w-full body-font text-stone-700 bg-white border-2 border-stone-300 hover:bg-stone-50 active:bg-stone-100 rounded-xl py-2 text-sm font-bold flex items-center justify-center gap-2 min-h-[44px]"
           >
             📊 Αναλυτική κατάσταση βαθμών
           </button>
@@ -337,9 +355,9 @@ export default function FootballTrivia() {
 
         <button
           onClick={resetGame}
-          className="mt-5 mx-auto flex items-center gap-2 bg-stone-800 text-white py-2 px-5 rounded-full body-font text-lg hover:bg-stone-700 transition"
+          className="mt-4 mx-auto flex items-center gap-2 bg-stone-800 text-white py-2.5 px-5 rounded-full body-font text-base hover:bg-stone-700 active:bg-stone-900 transition min-h-[44px]"
         >
-          <RotateCcw size={18} /> Νέο παιχνίδι
+          <RotateCcw size={16} /> Νέο παιχνίδι
         </button>
       </div>
 
@@ -364,17 +382,17 @@ export default function FootballTrivia() {
 }
 
 // ============================================================================
-// CATEGORY CARD
+// CATEGORY CARD — bigger chips for touch
 // ============================================================================
 function CategoryCard({ category, usedQuestions, onPick, hasQuestions }) {
   return (
     <div className="rounded-xl overflow-hidden card-shadow" style={{ backgroundColor: category.bg }}>
-      <div className="py-2 px-3 text-center border-b-2" style={{ borderColor: 'rgba(0,0,0,0.2)' }}>
-        <h3 className="handwritten text-xl font-bold leading-tight" style={{ color: category.textColor }}>
+      <div className="py-1.5 px-2 text-center border-b-2" style={{ borderColor: 'rgba(0,0,0,0.2)' }}>
+        <h3 className="handwritten text-lg font-bold leading-tight" style={{ color: category.textColor }}>
           {category.name}
         </h3>
       </div>
-      <div className="flex justify-around items-center py-3 gap-2 px-2">
+      <div className="flex justify-around items-center py-2.5 gap-2 px-2">
         {category.multipliers.map((mult, idx) => {
           const used = usedQuestions[`${category.name}-${idx}`];
           return (
@@ -383,8 +401,8 @@ function CategoryCard({ category, usedQuestions, onPick, hasQuestions }) {
               onClick={() => onPick(category.name, mult, idx)}
               disabled={used || !hasQuestions}
               title={!hasQuestions ? 'Ερωτήσεις μη διαθέσιμες' : undefined}
-              className={`w-11 h-11 rounded-full bg-white body-font text-base font-bold text-stone-800 chip-shadow transition ${
-                used || !hasQuestions ? 'opacity-30 cursor-not-allowed' : 'hover:scale-110 active:scale-95'
+              className={`w-14 h-14 rounded-full bg-white body-font text-lg font-bold text-stone-800 chip-shadow transition ${
+                used || !hasQuestions ? 'opacity-30 cursor-not-allowed' : 'active:scale-95'
               }`}
             >
               {used ? '—' : `x${mult}`}
@@ -397,7 +415,7 @@ function CategoryCard({ category, usedQuestions, onPick, hasQuestions }) {
 }
 
 // ============================================================================
-// TEAM PANEL
+// TEAM PANEL — compact but touch-friendly
 // ============================================================================
 function TeamPanel({ color, name, value, onChange, active, powerUps, activePowerUp, onArmX2, onDisarmX2, disabled }) {
   const borderColor = color === 'red' ? 'border-red-600' : 'border-blue-700';
@@ -407,45 +425,43 @@ function TeamPanel({ color, name, value, onChange, active, powerUps, activePower
   const x2Armed = activePowerUp === 'x2';
 
   return (
-    <div className={`${bgAccent} border-4 ${borderColor} ${ring} rounded-xl p-3 transition-all`}>
+    <div className={`${bgAccent} border-4 ${borderColor} ${ring} rounded-xl p-2 transition-all`}>
       {name && (
-        <div className={`text-center body-font font-bold text-sm mb-1 truncate ${textColor}`}>{name}</div>
+        <div className={`text-center body-font font-bold text-xs mb-1 truncate ${textColor}`}>{name}</div>
       )}
       <div className="flex items-center justify-between mb-2">
-        <button onClick={() => onChange(Math.max(0, value - 1))} className={`${textColor} hover:bg-white/50 rounded-full p-1`}>
-          <Minus size={14} />
+        <button
+          onClick={() => onChange(Math.max(0, value - 1))}
+          className={`${textColor} hover:bg-white/50 active:bg-white/70 rounded-full p-2 min-w-[36px] min-h-[36px] flex items-center justify-center`}
+        >
+          <Minus size={16} />
         </button>
-        <span className={`handwritten text-3xl font-bold ${textColor}`}>{value}</span>
-        <button onClick={() => onChange(value + 1)} className={`${textColor} hover:bg-white/50 rounded-full p-1`}>
-          <Plus size={14} />
+        <span className={`handwritten text-4xl font-bold ${textColor}`}>{value}</span>
+        <button
+          onClick={() => onChange(value + 1)}
+          className={`${textColor} hover:bg-white/50 active:bg-white/70 rounded-full p-2 min-w-[36px] min-h-[36px] flex items-center justify-center`}
+        >
+          <Plus size={16} />
         </button>
       </div>
       <div className="flex gap-1 justify-center">
         <button
           onClick={x2Armed ? onDisarmX2 : onArmX2}
           disabled={!active || !powerUps.x2 || disabled}
-          title={
-            !powerUps.x2 ? 'Έχει χρησιμοποιηθεί'
-            : !active ? 'Μόνο η ενεργή ομάδα'
-            : disabled ? 'Ολοκλήρωσε την τρέχουσα ερώτηση'
-            : x2Armed ? 'Πάτα ξανά για ακύρωση'
-            : 'Ενεργοποίηση για την επόμενη ερώτηση'
-          }
-          className={`text-xs px-2 py-1 rounded-full border-2 font-bold transition ${
+          className={`text-xs px-2 py-1.5 rounded-full border-2 font-bold transition min-h-[36px] ${
             !powerUps.x2
               ? 'bg-stone-200 border-stone-300 text-stone-400 line-through cursor-not-allowed'
               : x2Armed
               ? 'bg-amber-500 border-amber-700 text-white active-powerup'
               : active && !disabled
-              ? 'bg-amber-400 border-amber-600 text-stone-900 hover:bg-amber-300 cursor-pointer'
+              ? 'bg-amber-400 border-amber-600 text-stone-900 active:bg-amber-300 cursor-pointer'
               : 'bg-amber-200 border-amber-400 text-stone-700 cursor-not-allowed opacity-70'
           }`}
         >
           {x2Armed ? '⚡ ×2' : '×2'}
         </button>
         <span
-          title="50/50 — χρήση μέσα στην ερώτηση"
-          className={`text-xs px-2 py-1 rounded-full border-2 font-bold ${
+          className={`text-xs px-2 py-1.5 rounded-full border-2 font-bold min-h-[36px] flex items-center ${
             powerUps.fifty ? 'bg-cyan-400 border-cyan-600 text-stone-900' : 'bg-stone-200 border-stone-300 text-stone-400 line-through'
           }`}
         >
@@ -461,44 +477,46 @@ function TeamPanel({ color, name, value, onChange, active, powerUps, activePower
 // ============================================================================
 function BreakdownModal({ breakdown, totals, teamNames = ['RED', 'BLUE'], onClose }) {
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-      <div className="bg-gradient-to-b from-amber-50 to-orange-50 rounded-2xl max-w-md w-full p-5 card-shadow border-4 border-stone-800 max-h-[85vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4">
+    <div className="fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 backdrop-blur-sm">
+      <div className="bg-gradient-to-b from-amber-50 to-orange-50 rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md p-4 sm:p-5 card-shadow border-t-4 sm:border-4 border-stone-800 max-h-[85vh] overflow-y-auto modal-scroll safe-bottom">
+        <div className="flex justify-between items-center mb-3">
           <h3 className="handwritten text-2xl text-stone-800 font-bold">Αναλυτικοί πόντοι</h3>
-          <button onClick={onClose} className="text-stone-500 hover:text-stone-800"><X size={24} /></button>
+          <button onClick={onClose} className="text-stone-500 hover:text-stone-800 min-w-[44px] min-h-[44px] flex items-center justify-center">
+            <X size={24} />
+          </button>
         </div>
         <div className="bg-white rounded-xl border-2 border-stone-300 overflow-hidden">
-          <div className="grid grid-cols-[1fr_auto_auto] gap-2 bg-stone-100 px-3 py-2 body-font text-sm font-bold text-stone-600 border-b-2 border-stone-300">
+          <div className="grid grid-cols-[1fr_auto_auto] gap-1 bg-stone-100 px-3 py-2 body-font text-xs font-bold text-stone-600 border-b-2 border-stone-300">
             <span>Κατηγορία</span>
-            <span className="text-red-600 w-20 text-center truncate" title={teamNames[0]}>{teamNames[0]}</span>
-            <span className="text-blue-700 w-20 text-center truncate" title={teamNames[1]}>{teamNames[1]}</span>
+            <span className="text-red-600 w-16 text-center truncate" title={teamNames[0]}>{teamNames[0]}</span>
+            <span className="text-blue-700 w-16 text-center truncate" title={teamNames[1]}>{teamNames[1]}</span>
           </div>
           {CATEGORIES.map((cat) => {
             const r = breakdown[0][cat.name] || 0;
             const b = breakdown[1][cat.name] || 0;
             return (
-              <div key={cat.name} className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-2 border-b border-stone-100 body-font text-sm">
+              <div key={cat.name} className="grid grid-cols-[1fr_auto_auto] gap-1 px-3 py-2 border-b border-stone-100 body-font text-sm">
                 <span className="text-stone-700">{cat.name}</span>
-                <span className="text-red-600 font-bold w-20 text-center">{r > 0 ? `+${r}` : '—'}</span>
-                <span className="text-blue-700 font-bold w-20 text-center">{b > 0 ? `+${b}` : '—'}</span>
+                <span className="text-red-600 font-bold w-16 text-center">{r > 0 ? `+${r}` : '—'}</span>
+                <span className="text-blue-700 font-bold w-16 text-center">{b > 0 ? `+${b}` : '—'}</span>
               </div>
             );
           })}
-          <div className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-2 bg-stone-100 body-font text-sm font-bold">
+          <div className="grid grid-cols-[1fr_auto_auto] gap-1 px-3 py-2 bg-stone-100 body-font text-sm font-bold">
             <span className="text-stone-800">Σύνολο</span>
-            <span className="text-red-600 w-20 text-center">{totals[0]}</span>
-            <span className="text-blue-700 w-20 text-center">{totals[1]}</span>
+            <span className="text-red-600 w-16 text-center">{totals[0]}</span>
+            <span className="text-blue-700 w-16 text-center">{totals[1]}</span>
           </div>
         </div>
       </div>
     </div>
   );
 }
+
 // ============================================================================
-// QUESTION MODAL
+// QUESTION MODAL — full-screen on mobile, proper keyboard handling
 // ============================================================================
 function QuestionModal({ question, onFinish, onAward, onResolved, activePowerUp, onUsePowerUp, availablePowerUps, turn }) {
-  // FIX #6: multiplier display accounts for x2 correctly
   const displayMultiplier = activePowerUp === 'x2'
     ? question.multiplier * 2
     : activePowerUp === 'fifty'
@@ -506,56 +524,62 @@ function QuestionModal({ question, onFinish, onAward, onResolved, activePowerUp,
     : question.multiplier;
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50 backdrop-blur-sm overflow-y-auto">
-      <div className="bg-gradient-to-b from-amber-50 to-orange-50 rounded-2xl max-w-md w-full my-4 p-5 card-shadow border-4 border-stone-800">
-        <div className="flex justify-between items-start mb-3">
+    <div className="fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-50 backdrop-blur-sm">
+      <div className="bg-gradient-to-b from-amber-50 to-orange-50 rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md max-h-[95vh] flex flex-col border-t-4 sm:border-4 border-stone-800 safe-bottom">
+        {/* Fixed header */}
+        <div className="flex justify-between items-start p-4 pb-2 flex-shrink-0">
           <div>
-            <div className="body-font text-sm text-stone-500 uppercase tracking-wider">{question.category}</div>
+            <div className="body-font text-xs text-stone-500 uppercase tracking-wider">{question.category}</div>
             <div className="handwritten text-xl text-amber-700 font-bold">
               Αξίζει ×{displayMultiplier}
-              {activePowerUp === 'x2' && <span className="text-amber-500"> (×2 active!)</span>}
-              {activePowerUp === 'fifty' && <span className="text-cyan-600"> (50/50 active)</span>}
+              {activePowerUp === 'x2' && <span className="text-amber-500"> (×2!)</span>}
+              {activePowerUp === 'fifty' && <span className="text-cyan-600"> (50/50)</span>}
             </div>
           </div>
-          <button onClick={onFinish} className="text-stone-500 hover:text-stone-800"><X size={24} /></button>
+          <button onClick={onFinish} className="text-stone-500 hover:text-stone-800 min-w-[44px] min-h-[44px] flex items-center justify-center">
+            <X size={24} />
+          </button>
         </div>
 
-        {!activePowerUp && question.type !== 'top5' && question.type !== 'clubcombo' && (
-          <div className="flex gap-2 mb-4">
-            <button
-              onClick={() => onUsePowerUp('fifty')}
-              disabled={!availablePowerUps.fifty}
-              className="flex-1 flex items-center justify-center gap-2 bg-cyan-400 border-2 border-cyan-600 text-stone-900 py-2 rounded-xl body-font font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-cyan-300 transition"
-            >
-              <HelpCircle size={16} /> Χρήση 50/50
-            </button>
-          </div>
-        )}
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto modal-scroll px-4 pb-4">
+          {!activePowerUp && question.type !== 'top5' && question.type !== 'clubcombo' && (
+            <div className="flex gap-2 mb-3">
+              <button
+                onClick={() => onUsePowerUp('fifty')}
+                disabled={!availablePowerUps.fifty}
+                className="flex-1 flex items-center justify-center gap-2 bg-cyan-400 border-2 border-cyan-600 text-stone-900 py-3 rounded-xl body-font font-bold disabled:opacity-40 disabled:cursor-not-allowed active:bg-cyan-300 transition min-h-[48px]"
+              >
+                <HelpCircle size={16} /> Χρήση 50/50
+              </button>
+            </div>
+          )}
 
-        {(() => {
-          const props = {
-            question, onFinish, onAward, onResolved, activePowerUp,
-            multiplier: question.multiplier,
-            onSkip: onFinish,
-          };
-          switch (question.type) {
-            case 'logo':        return <LogoQuestion {...props} />;
-            case 'imageText':   return <ImageTextQuestion {...props} />;
-            case 'transfer':    return <TransferQuestion {...props} />;
-            case 'careerTable': return <CareerTableQuestion {...props} />;
-            case 'whomissing':  return <WhosMissingQuestion {...props} />;
-            case 'clubcombo':   return <ClubComboQuestion {...props} />;
-            case 'top5':        return <Top5Question {...props} />;
-            default:            return <TextQuestion {...props} />;
-          }
-        })()}
+          {(() => {
+            const props = {
+              question, onFinish, onAward, onResolved, activePowerUp,
+              multiplier: question.multiplier,
+              onSkip: onFinish,
+            };
+            switch (question.type) {
+              case 'logo':        return <LogoQuestion {...props} />;
+              case 'imageText':   return <ImageTextQuestion {...props} />;
+              case 'transfer':    return <TransferQuestion {...props} />;
+              case 'careerTable': return <CareerTableQuestion {...props} />;
+              case 'whomissing':  return <WhosMissingQuestion {...props} />;
+              case 'clubcombo':   return <ClubComboQuestion {...props} />;
+              case 'top5':        return <Top5Question {...props} />;
+              default:            return <TextQuestion {...props} />;
+            }
+          })()}
+        </div>
       </div>
     </div>
   );
 }
 
 // ============================================================================
-// SHARED ANSWER INPUT
+// SHARED ANSWER INPUT — mobile keyboard aware
 // ============================================================================
 function AnswerInput({ question, onFinish, onAward, onResolved, activePowerUp }) {
   const [userAnswer, setUserAnswer] = useState('');
@@ -563,6 +587,7 @@ function AnswerInput({ question, onFinish, onAward, onResolved, activePowerUp })
   const [result, setResult] = useState(null);
   const [fiftyOptions, setFiftyOptions] = useState(null);
   const [loadingFifty, setLoadingFifty] = useState(false);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     if (activePowerUp === 'fifty' && !fiftyOptions && !loadingFifty) {
@@ -574,8 +599,18 @@ function AnswerInput({ question, onFinish, onAward, onResolved, activePowerUp })
     }
   }, [activePowerUp, fiftyOptions, loadingFifty, question]);
 
+  // Delay focus to avoid iOS keyboard jump
+  useEffect(() => {
+    if (!result && !activePowerUp && inputRef.current) {
+      const timer = setTimeout(() => inputRef.current?.focus(), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [result, activePowerUp]);
+
   const submit = async (answerText) => {
     if (!answerText || verifying || result) return;
+    // Dismiss keyboard on mobile before verifying
+    inputRef.current?.blur();
     setVerifying(true);
     const verdict = await verifyAnswer(question.a, answerText, question.q, question.category, question.verifyLive);
     setResult(verdict);
@@ -594,10 +629,10 @@ function AnswerInput({ question, onFinish, onAward, onResolved, activePowerUp })
           }
         </div>
         {!result.correct && result.canonical && (
-          <p className="body-font text-stone-600 text-sm mb-1">Σωστή απάντηση: <strong>{result.canonical}</strong></p>
+          <p className="body-font text-stone-600 text-sm mb-1">Σωστή: <strong>{result.canonical}</strong></p>
         )}
         <p className="body-font text-stone-700 text-sm">{result.note}</p>
-        <button onClick={onFinish} className="body-font mt-4 w-full bg-stone-800 text-white py-2 rounded-xl hover:bg-stone-700">
+        <button onClick={onFinish} className="body-font mt-3 w-full bg-stone-800 text-white py-3 rounded-xl min-h-[48px] active:bg-stone-700">
           Σειρά επόμενης ομάδας →
         </button>
       </div>
@@ -609,19 +644,19 @@ function AnswerInput({ question, onFinish, onAward, onResolved, activePowerUp })
       return (
         <div className="flex items-center justify-center gap-2 py-6">
           <Sparkles size={22} className="animate-spin text-cyan-600" />
-          <span className="body-font text-lg text-stone-700">Το AI ετοιμάζει τις επιλογές…</span>
+          <span className="body-font text-lg text-stone-700">AI ετοιμάζει επιλογές…</span>
         </div>
       );
     }
     return (
       <div className="space-y-3">
-        <p className="body-font text-sm text-cyan-700 text-center">Διάλεξε μία — οι πόντοι πέφτουν στο ×1</p>
+        <p className="body-font text-sm text-cyan-700 text-center">Διάλεξε — πόντοι σε ×1</p>
         {fiftyOptions.map((opt, i) => (
           <button
             key={i}
             onClick={() => submit(opt)}
             disabled={verifying}
-            className="w-full body-font bg-white border-2 border-cyan-600 text-stone-900 py-3 rounded-xl text-lg font-bold hover:bg-cyan-50 transition disabled:opacity-50"
+            className="w-full body-font bg-white border-2 border-cyan-600 text-stone-900 py-4 rounded-xl text-lg font-bold active:bg-cyan-50 transition disabled:opacity-50 min-h-[56px]"
           >
             {opt}
           </button>
@@ -633,22 +668,22 @@ function AnswerInput({ question, onFinish, onAward, onResolved, activePowerUp })
   return (
     <>
       <input
+        ref={inputRef}
         type="text"
         value={userAnswer}
         onChange={(e) => setUserAnswer(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && submit(userAnswer)}
         disabled={verifying}
         placeholder="Η απάντησή σου…"
-        className="body-font w-full border-2 border-stone-800 rounded-xl px-4 py-3 text-lg mb-4 bg-white focus:outline-none focus:ring-4 focus:ring-amber-300"
-        autoFocus
+        className="body-font w-full border-2 border-stone-800 rounded-xl px-4 py-3 text-lg mb-3 bg-white focus:outline-none focus:ring-4 focus:ring-amber-300"
       />
       <button
         onClick={() => submit(userAnswer)}
         disabled={verifying || !userAnswer.trim()}
-        className="body-font w-full bg-stone-800 text-white py-3 rounded-xl text-lg flex items-center justify-center gap-2 hover:bg-stone-700 disabled:opacity-50 transition"
+        className="body-font w-full bg-stone-800 text-white py-3 rounded-xl text-lg flex items-center justify-center gap-2 active:bg-stone-700 disabled:opacity-50 transition min-h-[52px]"
       >
         {verifying
-          ? <><Sparkles size={20} className="animate-spin" /> Το AI ελέγχει…</>
+          ? <><Sparkles size={20} className="animate-spin" /> Ελέγχει…</>
           : 'Υποβολή απάντησης'
         }
       </button>
@@ -662,7 +697,7 @@ function AnswerInput({ question, onFinish, onAward, onResolved, activePowerUp })
 function TextQuestion({ question, onFinish, onAward, onResolved, activePowerUp }) {
   return (
     <>
-      <p className="body-font text-xl text-stone-800 mb-5 leading-relaxed">{question.q}</p>
+      <p className="body-font text-xl text-stone-800 mb-4 leading-relaxed">{question.q}</p>
       <AnswerInput question={question} onFinish={onFinish} onAward={onAward} onResolved={onResolved} activePowerUp={activePowerUp} />
     </>
   );
@@ -672,8 +707,8 @@ function LogoQuestion({ question, onFinish, onAward, onResolved, activePowerUp }
   return (
     <>
       <p className="body-font text-xl text-stone-800 mb-3 text-center">{question.q}</p>
-      <div className="bg-white rounded-xl p-4 mb-4 flex justify-center items-center h-48 border-2 border-stone-300">
-        <img src={question.imageUrl} alt="Logo" className="max-h-40 max-w-full object-contain" />
+      <div className="bg-white rounded-xl p-3 mb-4 flex justify-center items-center h-44 border-2 border-stone-300">
+        <img src={question.imageUrl} alt="Logo" className="max-h-36 max-w-full object-contain" />
       </div>
       <AnswerInput question={question} onFinish={onFinish} onAward={onAward} onResolved={onResolved} activePowerUp={activePowerUp} />
     </>
@@ -684,9 +719,9 @@ function ImageTextQuestion({ question, onFinish, onAward, onResolved, activePowe
   return (
     <>
       <div className="rounded-xl overflow-hidden mb-3 border-2 border-stone-300 bg-stone-100">
-        <img src={question.imageUrl} alt="question" className="w-full max-h-64 object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
+        <img src={question.imageUrl} alt="question" className="w-full max-h-56 object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
       </div>
-      <p className="body-font text-lg text-stone-800 mb-4 text-center">{question.q}</p>
+      <p className="body-font text-lg text-stone-800 mb-3 text-center">{question.q}</p>
       <AnswerInput question={question} onFinish={onFinish} onAward={onAward} onResolved={onResolved} activePowerUp={activePowerUp} />
     </>
   );
@@ -700,12 +735,12 @@ function TransferQuestion({ question, onFinish, onAward, onResolved, activePower
           {question.question} {question.year}
         </span>
       </div>
-      <div className="bg-green-600 rounded-b-xl p-4 mb-4 flex items-center justify-around">
-        <span className="handwritten text-2xl text-white font-bold">{question.from}</span>
-        <span className="text-white text-2xl">▶</span>
-        <span className="handwritten text-2xl text-white font-bold">{question.to}</span>
+      <div className="bg-green-600 rounded-b-xl p-3 mb-4 flex items-center justify-around">
+        <span className="handwritten text-2xl text-white font-bold text-center">{question.from}</span>
+        <span className="text-white text-2xl flex-shrink-0">▶</span>
+        <span className="handwritten text-2xl text-white font-bold text-center">{question.to}</span>
       </div>
-      <p className="body-font text-stone-600 text-center mb-3">Ποιος παίκτης έκανε αυτή τη μεταγραφή;</p>
+      <p className="body-font text-stone-600 text-center mb-3 text-sm">Ποιος παίκτης έκανε αυτή τη μεταγραφή;</p>
       <AnswerInput question={question} onFinish={onFinish} onAward={onAward} onResolved={onResolved} activePowerUp={activePowerUp} />
     </>
   );
@@ -715,18 +750,18 @@ function CareerTableQuestion({ question, onFinish, onAward, onResolved, activePo
   return (
     <>
       <div className="bg-gradient-to-b from-purple-600 to-purple-800 rounded-xl p-3 mb-4">
-        <div className="flex justify-between text-purple-100 body-font text-sm uppercase tracking-wide border-b border-purple-400 pb-2 mb-2">
+        <div className="flex justify-between text-purple-100 body-font text-xs uppercase tracking-wide border-b border-purple-400 pb-2 mb-2">
           <span>Ομάδα</span><span>Περίοδος</span>
         </div>
-        <div className="max-h-64 overflow-y-auto">
+        <div className="max-h-48 overflow-y-auto modal-scroll">
           {(question.career || []).map(([team, period], i) => (
             <div key={i} className={`flex justify-between body-font text-white py-1.5 px-2 rounded ${i % 2 ? 'bg-purple-700/40' : ''}`}>
-              <span>{team}</span><span className="text-purple-200">{period}</span>
+              <span className="text-sm">{team}</span><span className="text-purple-200 text-sm">{period}</span>
             </div>
           ))}
         </div>
       </div>
-      <p className="body-font text-stone-600 text-center mb-3">Ποιος είναι αυτός ο παίκτης;</p>
+      <p className="body-font text-stone-600 text-center mb-3 text-sm">Ποιος είναι αυτός ο παίκτης;</p>
       <AnswerInput question={question} onFinish={onFinish} onAward={onAward} onResolved={onResolved} activePowerUp={activePowerUp} />
     </>
   );
@@ -736,9 +771,9 @@ function WhosMissingQuestion({ question, onAward, onSkip, multiplier, activePowe
   const [input, setInput] = useState('');
   const [result, setResult] = useState(null);
   const [verifying, setVerifying] = useState(false);
-  const [fiftyOptions, setFiftyOptions] = useState(null); // [{label, correct}]
+  const [fiftyOptions, setFiftyOptions] = useState(null);
+  const inputRef = useRef(null);
 
-  // Όταν ενεργοποιηθεί το 50/50, φτιάχνουμε τις δύο επιλογές
   useEffect(() => {
     if (activePowerUp === 'fifty' && !fiftyOptions) {
       const correct = question.answer.split('|')[0];
@@ -747,7 +782,6 @@ function WhosMissingQuestion({ question, onAward, onSkip, multiplier, activePowe
         { label: correct, correct: true },
         { label: wrong,   correct: false },
       ];
-      // Τυχαία σειρά
       setFiftyOptions(Math.random() < 0.5 ? opts : [opts[1], opts[0]]);
     }
   }, [activePowerUp, fiftyOptions, question]);
@@ -755,6 +789,7 @@ function WhosMissingQuestion({ question, onAward, onSkip, multiplier, activePowe
   async function handleSubmit(answerText) {
     const ans = answerText ?? input;
     if (verifying || result || !ans.trim()) return;
+    inputRef.current?.blur();
     setVerifying(true);
 
     const normInput = normalize(ans);
@@ -789,24 +824,20 @@ function WhosMissingQuestion({ question, onAward, onSkip, multiplier, activePowe
 
   return (
     <div className="space-y-3">
+      <p className="text-center font-bold text-lg text-stone-800 body-font">{question.question}</p>
+      <p className="text-center text-stone-500 text-sm body-font">Ποιος λείπει από την 11άδα;</p>
 
-      {/* Match title */}
-      <p className="text-center font-bold text-lg text-stone-800">{question.question}</p>
-      <p className="text-center text-stone-500 text-sm">Ποιος λείπει από την 11άδα;</p>
-
-      {/* Ολόκληρη η εικόνα */}
       {question.image_url && (
         <div className="w-full rounded-xl overflow-hidden bg-black">
           <img
             src={question.image_url}
             alt="Formation"
             className="w-full h-auto object-contain"
-            style={{ maxHeight: '320px' }}
+            style={{ maxHeight: '280px' }}
           />
         </div>
       )}
 
-      {/* 50/50 επιλογές */}
       {fiftyOptions && !result && (
         <div className="flex gap-3">
           {fiftyOptions.map((opt, i) => (
@@ -814,7 +845,7 @@ function WhosMissingQuestion({ question, onAward, onSkip, multiplier, activePowe
               key={i}
               onClick={() => handleSubmit(opt.label)}
               disabled={verifying}
-              className="flex-1 bg-cyan-100 border-2 border-cyan-500 text-cyan-900 font-bold py-3 rounded-xl hover:bg-cyan-200 disabled:opacity-50 transition"
+              className="flex-1 bg-cyan-100 border-2 border-cyan-500 text-cyan-900 font-bold py-4 rounded-xl active:bg-cyan-200 disabled:opacity-50 transition min-h-[52px] body-font"
             >
               {opt.label}
             </button>
@@ -822,32 +853,30 @@ function WhosMissingQuestion({ question, onAward, onSkip, multiplier, activePowe
         </div>
       )}
 
-      {/* Free-text input (όταν ΔΕΝ είναι 50/50) */}
       {!fiftyOptions && !result && (
         <div className="flex gap-2">
           <input
-            className="flex-1 border-2 border-gray-300 rounded-lg p-2 focus:outline-none focus:border-blue-500"
+            ref={inputRef}
+            className="flex-1 border-2 border-gray-300 rounded-lg p-3 focus:outline-none focus:border-blue-500 body-font"
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSubmit()}
             placeholder="Ποιος λείπει;"
-            autoFocus
             disabled={verifying}
           />
           <button
             onClick={() => handleSubmit()}
             disabled={verifying}
-            className="bg-blue-600 text-white px-4 rounded-lg font-bold hover:bg-blue-700 disabled:opacity-50">
+            className="bg-blue-600 text-white px-5 rounded-lg font-bold active:bg-blue-700 disabled:opacity-50 min-w-[60px] min-h-[52px] body-font">
             {verifying ? '...' : 'OK'}
           </button>
         </div>
       )}
 
-      {/* Αποτελέσματα */}
       {result === 'correct' && (
         <div className="bg-green-100 border border-green-400 rounded-lg p-3 text-center">
-          <p className="text-green-700 font-bold">✓ Σωστό!</p>
-          <button onClick={onSkip} className="mt-2 bg-stone-700 text-white px-4 py-1 rounded-lg font-bold">
+          <p className="text-green-700 font-bold body-font">✓ Σωστό!</p>
+          <button onClick={onSkip} className="mt-2 bg-stone-700 text-white px-6 py-2.5 rounded-lg font-bold min-h-[44px] body-font">
             Επόμενο →
           </button>
         </div>
@@ -855,9 +884,9 @@ function WhosMissingQuestion({ question, onAward, onSkip, multiplier, activePowe
 
       {result === 'wrong' && (
         <div className="bg-red-100 border border-red-400 rounded-lg p-3 text-center">
-          <p className="text-red-700 font-bold">✗ Λάθος!</p>
-          <p className="text-sm text-gray-600">Σωστό: {question.answer.split('|')[0]}</p>
-          <button onClick={onSkip} className="mt-2 bg-stone-700 text-white px-4 py-1 rounded-lg font-bold">
+          <p className="text-red-700 font-bold body-font">✗ Λάθος!</p>
+          <p className="text-sm text-gray-600 body-font">Σωστό: {question.answer.split('|')[0]}</p>
+          <button onClick={onSkip} className="mt-2 bg-stone-700 text-white px-6 py-2.5 rounded-lg font-bold min-h-[44px] body-font">
             Επόμενο →
           </button>
         </div>
@@ -865,10 +894,10 @@ function WhosMissingQuestion({ question, onAward, onSkip, multiplier, activePowe
     </div>
   );
 }
+
 // ============================================================================
-// TOP 5 QUESTION — FIX #5: "Continue" button now works
+// TOP 5 QUESTION
 // ============================================================================
- 
 function Top5Question({ question, multiplier, onAward, onFinish }) {
   const answers = (question.answer || '').split('|').map(a => a.trim());
   const [revealed, setRevealed] = useState([]);
@@ -877,14 +906,15 @@ function Top5Question({ question, multiplier, onAward, onFinish }) {
   const [done, setDone] = useState(false);
   const [showStopDialog, setShowStopDialog] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const inputRef = useRef(null);
 
   async function handleSubmit() {
     if (done || verifying || !input.trim()) return;
+    inputRef.current?.blur();
     setVerifying(true);
 
     const normInput = normalize(input);
 
-    // STEP 1: local check
     const matchIdx = answers.findIndex(
       (a, i) => !revealed.includes(i) && normalize(a) === normInput
     );
@@ -899,7 +929,6 @@ function Top5Question({ question, multiplier, onAward, onFinish }) {
       return;
     }
 
-    // STEP 2: Claude fuzzy
     const remaining = answers.filter((_, i) => !revealed.includes(i)).join('|');
     try {
       const res = await fetch('/api/verify', {
@@ -925,7 +954,6 @@ function Top5Question({ question, multiplier, onAward, onFinish }) {
           );
         }
         if (idxToReveal === -1) {
-          // Claude matched something we can't pin — treat as wrong
           const newWrong = [...wrongAnswers, input.trim()];
           setWrongAnswers(newWrong);
           setInput('');
@@ -941,9 +969,8 @@ function Top5Question({ question, multiplier, onAward, onFinish }) {
         else if (newRevealed.length === answers.length - 1) { setShowStopDialog(true); }
         return;
       }
-    } catch { /* Claude unavailable */ }
+    } catch { }
 
-    // STEP 3: Wrong
     const newWrong = [...wrongAnswers, input.trim()];
     setWrongAnswers(newWrong);
     setInput('');
@@ -962,10 +989,9 @@ function Top5Question({ question, multiplier, onAward, onFinish }) {
         <p className="body-font text-center font-bold text-stone-800 text-lg">{question.q}</p>
       )}
 
-      {/* ΠΡΑΣΙΝΟ PANEL με 5 slots */}
-      <div className="bg-green-600 rounded-xl p-3 space-y-2">
+      <div className="bg-green-600 rounded-xl p-2.5 space-y-1.5">
         {answers.map((ans, i) => (
-          <div key={i} className={`rounded-full px-4 py-2 flex items-center gap-3 transition-all
+          <div key={i} className={`rounded-full px-3 py-2 flex items-center gap-2.5 transition-all
             ${revealed.includes(i) ? 'bg-green-800' : 'bg-green-500'}`}>
             <span className="bg-white text-green-700 rounded-full w-7 h-7 flex items-center justify-center body-font font-bold text-sm flex-shrink-0">
               {i + 1}
@@ -976,8 +1002,7 @@ function Top5Question({ question, multiplier, onAward, onFinish }) {
           </div>
         ))}
 
-        {/* ΚΟΚΚΙΝΟ SLOT για λάθος — πάντα φαίνεται */}
-        <div className={`rounded-full px-4 py-2 flex items-center gap-3 transition-all mt-1
+        <div className={`rounded-full px-3 py-2 flex items-center gap-2.5 transition-all mt-1
           ${wrongAnswers.length > 0 ? 'bg-red-500' : 'bg-red-800/40'}`}>
           <span className="bg-white text-red-600 rounded-full w-7 h-7 flex items-center justify-center body-font font-bold text-sm flex-shrink-0">
             ✗
@@ -986,63 +1011,60 @@ function Top5Question({ question, multiplier, onAward, onFinish }) {
             {lastWrong || '—'}
           </span>
           {wrongAnswers.length === 1 && !done && (
-            <span className="body-font text-xs text-white/80 ml-auto">⚠️ 1 ακόμα λάθος!</span>
+            <span className="body-font text-xs text-white/80 ml-auto">⚠️ 1 ακόμα!</span>
           )}
         </div>
       </div>
 
-      {/* STOP OR CONTINUE */}
       {showStopDialog && (
-        <div className="bg-amber-50 border-2 border-amber-400 rounded-xl p-4 text-center space-y-3">
-          <p className="body-font font-bold text-amber-800">4 σωστές! Σταματάς ή συνεχίζεις;</p>
-          <p className="body-font text-sm text-amber-700">
-            Σταμάτα → <strong>1 πόντος</strong> &nbsp;|&nbsp; Συνέχισε → <strong>{multiplier} πόντοι</strong> (ή 0 αν λάθος)
+        <div className="bg-amber-50 border-2 border-amber-400 rounded-xl p-3 text-center space-y-2">
+          <p className="body-font font-bold text-amber-800 text-sm">4 σωστές! Σταματάς ή συνεχίζεις;</p>
+          <p className="body-font text-xs text-amber-700">
+            Σταμάτα → <strong>1 πόντος</strong> | Συνέχισε → <strong>{multiplier}</strong> (ή 0)
           </p>
-          <div className="flex gap-3 justify-center">
+          <div className="flex gap-2 justify-center">
             <button onClick={handleStop}
-              className="body-font bg-amber-500 text-white px-5 py-2 rounded-lg font-bold hover:bg-amber-600">
-              Σταματώ (1 πόντος)
+              className="body-font bg-amber-500 text-white px-4 py-2.5 rounded-lg font-bold active:bg-amber-600 min-h-[44px]">
+              Σταματώ
             </button>
             <button onClick={handleContinue}
-              className="body-font bg-green-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-green-700">
+              className="body-font bg-green-600 text-white px-4 py-2.5 rounded-lg font-bold active:bg-green-700 min-h-[44px]">
               Συνεχίζω!
             </button>
           </div>
         </div>
       )}
 
-      {/* INPUT */}
       {!done && !showStopDialog && (
         <div className="flex gap-2">
           <input
-            className="flex-1 border-2 border-stone-300 rounded-lg p-2 body-font text-stone-900 focus:outline-none focus:border-green-500"
+            ref={inputRef}
+            className="flex-1 border-2 border-stone-300 rounded-lg p-3 body-font text-stone-900 focus:outline-none focus:border-green-500"
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSubmit()}
             placeholder="Απάντηση..."
-            autoFocus
             disabled={verifying}
           />
           <button onClick={handleSubmit} disabled={verifying}
-            className="body-font bg-green-600 text-white px-4 rounded-lg font-bold hover:bg-green-700 disabled:opacity-50">
+            className="body-font bg-green-600 text-white px-5 rounded-lg font-bold active:bg-green-700 disabled:opacity-50 min-w-[60px] min-h-[52px]">
             {verifying ? '...' : 'OK'}
           </button>
         </div>
       )}
 
-      {/* DONE */}
       {done && (
         <div className="space-y-2">
           {answers.some((_, i) => !revealed.includes(i)) && (
             <>
-              <p className="body-font text-center text-sm text-stone-500">Οι υπόλοιπες απαντήσεις:</p>
+              <p className="body-font text-center text-xs text-stone-500">Οι υπόλοιπες:</p>
               {answers.map((ans, i) => !revealed.includes(i) && (
                 <div key={i} className="bg-stone-200 text-stone-600 rounded-lg p-2 text-center body-font text-sm">{ans}</div>
               ))}
             </>
           )}
           <button onClick={onFinish}
-            className="body-font w-full bg-stone-700 text-white py-2 rounded-lg font-bold hover:bg-stone-800">
+            className="body-font w-full bg-stone-700 text-white py-3 rounded-lg font-bold active:bg-stone-800 min-h-[48px]">
             Επόμενο →
           </button>
         </div>
@@ -1051,25 +1073,27 @@ function Top5Question({ question, multiplier, onAward, onFinish }) {
   );
 }
 
-function ClubComboQuestion({ question, onAward, onSkip, multiplier, activePowerUp, onUsePowerUp }) {
+function ClubComboQuestion({ question, onAward, onSkip, multiplier }) {
   const [input, setInput] = useState('');
   const [result, setResult] = useState(null);
   const [verifying, setVerifying] = useState(false);
- 
+  const inputRef = useRef(null);
+
   async function handleSubmit() {
     if (verifying || result) return;
+    inputRef.current?.blur();
     setVerifying(true);
- 
+
     const normInput = normalize(input);
     const acceptedAnswers = question.answer.split('|').map(normalize);
- 
+
     if (acceptedAnswers.includes(normInput)) {
       setResult('correct');
       setVerifying(false);
       onAward(multiplier);
       return;
     }
- 
+
     try {
       const res = await fetch('/api/verify', {
         method: 'POST',
@@ -1094,67 +1118,65 @@ function ClubComboQuestion({ question, onAward, onSkip, multiplier, activePowerU
     }
     setVerifying(false);
   }
- 
-  // Parse question to check if it's "Team A & Team B" format
+
   const teamMatch = question.question.match(/^(.+?)\s*[&×+]\s*(.+)$/);
   const teamA = teamMatch?.[1]?.trim();
   const teamB = teamMatch?.[2]?.trim();
- 
+
   return (
     <div className="space-y-3">
-      {/* Team display */}
       {teamA && teamB ? (
-        <div className="flex items-center justify-center gap-3 py-3">
-          <div className="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-center min-w-[100px]">
+        <div className="flex items-center justify-center gap-3 py-2">
+          <div className="bg-blue-600 text-white px-3 py-2.5 rounded-xl font-bold text-center flex-1 body-font">
             {teamA}
           </div>
-          <span className="text-2xl font-black text-gray-400">&</span>
-          <div className="bg-red-600 text-white px-4 py-2 rounded-xl font-bold text-center min-w-[100px]">
+          <span className="text-2xl font-black text-gray-400 flex-shrink-0">&</span>
+          <div className="bg-red-600 text-white px-3 py-2.5 rounded-xl font-bold text-center flex-1 body-font">
             {teamB}
           </div>
         </div>
       ) : (
-        <p className="text-center font-semibold text-gray-700">{question.question}</p>
+        <p className="text-center font-semibold text-gray-700 body-font">{question.question}</p>
       )}
- 
-      <p className="text-center text-sm text-gray-500">
+
+      <p className="text-center text-sm text-gray-500 body-font">
         Βρες παίκτη που αγωνίστηκε και στις δύο ομάδες
       </p>
- 
+
       {result === 'correct' && (
         <div className="bg-green-100 border border-green-400 rounded-lg p-3 text-center">
-          <p className="text-green-700 font-bold">✓ Σωστό!</p>
-          <button onClick={onSkip} className="mt-2 bg-stone-700 text-white px-4 py-1 rounded-lg font-bold">
+          <p className="text-green-700 font-bold body-font">✓ Σωστό!</p>
+          <button onClick={onSkip} className="mt-2 bg-stone-700 text-white px-6 py-2.5 rounded-lg font-bold min-h-[44px] body-font">
             Επόμενο →
           </button>
         </div>
       )}
- 
+
       {result === 'wrong' && (
         <div className="bg-red-100 border border-red-400 rounded-lg p-3 text-center">
-          <p className="text-red-700 font-bold">✗ Λάθος!</p>
-          <p className="text-sm text-gray-600">Ένας σωστός: {question.answer.split('|')[0]}</p>
-          <button onClick={onSkip} className="mt-2 bg-stone-700 text-white px-4 py-1 rounded-lg font-bold">
+          <p className="text-red-700 font-bold body-font">✗ Λάθος!</p>
+          <p className="text-sm text-gray-600 body-font">Ένας σωστός: {question.answer.split('|')[0]}</p>
+          <button onClick={onSkip} className="mt-2 bg-stone-700 text-white px-6 py-2.5 rounded-lg font-bold min-h-[44px] body-font">
             Επόμενο →
           </button>
         </div>
       )}
- 
+
       {!result && (
         <div className="flex gap-2">
           <input
-            className="flex-1 border-2 border-gray-300 rounded-lg p-2 focus:outline-none focus:border-blue-500"
+            ref={inputRef}
+            className="flex-1 border-2 border-gray-300 rounded-lg p-3 focus:outline-none focus:border-blue-500 body-font"
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSubmit()}
             placeholder="Όνομα παίκτη..."
-            autoFocus
             disabled={verifying}
           />
           <button
             onClick={handleSubmit}
             disabled={verifying}
-            className="bg-blue-600 text-white px-4 rounded-lg font-bold hover:bg-blue-700 disabled:opacity-50">
+            className="bg-blue-600 text-white px-5 rounded-lg font-bold active:bg-blue-700 disabled:opacity-50 min-w-[60px] min-h-[52px] body-font">
             {verifying ? '...' : 'OK'}
           </button>
         </div>
@@ -1162,7 +1184,7 @@ function ClubComboQuestion({ question, onAward, onSkip, multiplier, activePowerU
     </div>
   );
 }
- 
+
 // ============================================================================
 // LANDING PAGE
 // ============================================================================
@@ -1170,46 +1192,46 @@ function LandingPage({ sharedStyle, teamNames, onStart }) {
   const [names, setNames] = useState([...teamNames]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-50 p-4 flex flex-col items-center justify-center" style={{ fontFamily: "'Patrick Hand', cursive" }}>
+    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-50 px-4 flex flex-col items-center justify-center safe-bottom" style={{ fontFamily: "'Patrick Hand', cursive" }}>
       <style>{sharedStyle}</style>
       <div className="max-w-md w-full text-center">
         <div className="flex items-center justify-center gap-3 mb-4">
-          <Beer size={56} className="text-amber-500" strokeWidth={2.5} />
-          <h1 className="handwritten text-5xl font-bold text-stone-800">FOOTBALL TRIVIA</h1>
+          <Beer size={48} className="text-amber-500 flex-shrink-0" strokeWidth={2.5} />
+          <h1 className="handwritten text-4xl sm:text-5xl font-bold text-stone-800">FOOTBALL TRIVIA</h1>
         </div>
-        <div className="bg-red-600 rounded-2xl py-2 px-4 mb-8 transform -rotate-1 card-shadow">
-          <p className="handwritten text-2xl text-white text-center italic font-semibold">
+        <div className="bg-red-600 rounded-2xl py-2 px-4 mb-6 transform -rotate-1 card-shadow">
+          <p className="handwritten text-xl sm:text-2xl text-white text-center italic font-semibold">
             Put some strategy on your game!
           </p>
         </div>
-        <div className="bg-white rounded-2xl p-6 card-shadow border-4 border-stone-800 mb-6">
+        <div className="bg-white rounded-2xl p-5 card-shadow border-4 border-stone-800 mb-5">
           <h2 className="handwritten text-2xl text-stone-800 font-bold mb-4">Ονόματα ομάδων</h2>
           <div className="space-y-3">
             <div className="flex items-center gap-3">
-              <span className="text-2xl">🔴</span>
+              <span className="text-2xl flex-shrink-0">🔴</span>
               <input
                 type="text"
                 value={names[0]}
                 onChange={(e) => setNames([e.target.value, names[1]])}
                 placeholder="RED team"
-                className="body-font flex-1 border-2 border-red-400 rounded-xl px-3 py-2 text-lg focus:outline-none focus:ring-4 focus:ring-red-200"
+                className="body-font flex-1 border-2 border-red-400 rounded-xl px-3 py-3 text-lg focus:outline-none focus:ring-4 focus:ring-red-200 min-h-[52px]"
               />
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-2xl">🔵</span>
+              <span className="text-2xl flex-shrink-0">🔵</span>
               <input
                 type="text"
                 value={names[1]}
                 onChange={(e) => setNames([names[0], e.target.value])}
                 placeholder="BLUE team"
-                className="body-font flex-1 border-2 border-blue-500 rounded-xl px-3 py-2 text-lg focus:outline-none focus:ring-4 focus:ring-blue-200"
+                className="body-font flex-1 border-2 border-blue-500 rounded-xl px-3 py-3 text-lg focus:outline-none focus:ring-4 focus:ring-blue-200 min-h-[52px]"
               />
             </div>
           </div>
         </div>
         <button
           onClick={() => onStart([names[0].trim() || 'RED team', names[1].trim() || 'BLUE team'])}
-          className="body-font bg-stone-800 text-white py-4 px-10 rounded-2xl text-xl font-bold hover:bg-stone-700 transition card-shadow"
+          className="body-font bg-stone-800 text-white py-4 px-10 rounded-2xl text-xl font-bold active:bg-stone-700 transition card-shadow min-h-[56px]"
         >
           Ας παίξουμε! 🎮
         </button>
@@ -1222,11 +1244,12 @@ function LandingPage({ sharedStyle, teamNames, onStart }) {
 // COIN FLIP
 // ============================================================================
 function CoinFlip({ sharedStyle, teamNames, onComplete }) {
-  const [phase, setPhase] = useState('loading'); // loading | ready | team1 | team2 | reveal | choose
+  const [phase, setPhase] = useState('loading');
   const [question, setQuestion] = useState(null);
   const [guesses, setGuesses] = useState(['', '']);
   const [input, setInput] = useState('');
   const [winner, setWinner] = useState(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     fetch('/api/coinflip')
@@ -1238,6 +1261,7 @@ function CoinFlip({ sharedStyle, teamNames, onComplete }) {
   function handleGuess() {
     if (!input.trim() || isNaN(parseInt(input))) return;
     const val = parseInt(input);
+    inputRef.current?.blur();
 
     if (phase === 'team1') {
       setGuesses([val, '']);
@@ -1249,7 +1273,6 @@ function CoinFlip({ sharedStyle, teamNames, onComplete }) {
       const correct = parseInt(question.answer.replace(/\D/g, ''), 10);
       const diff0 = Math.abs(g0 - correct);
       const diff1 = Math.abs(g1 - correct);
-      // Σε ισοπαλία κερδίζει η 1η ομάδα (δεν είδε την απάντηση της άλλης)
       const w = diff0 <= diff1 ? 0 : 1;
       setGuesses([g0, g1]);
       setWinner(w);
@@ -1261,102 +1284,95 @@ function CoinFlip({ sharedStyle, teamNames, onComplete }) {
   const winnerBg = winner === 0 ? 'bg-red-600' : 'bg-blue-700';
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-50 p-4 flex flex-col items-center justify-center" style={{ fontFamily: "'Patrick Hand', cursive" }}>
+    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-50 px-4 flex flex-col items-center justify-center safe-bottom" style={{ fontFamily: "'Patrick Hand', cursive" }}>
       <style>{sharedStyle}</style>
       <div className="max-w-md w-full">
-
-        <div className="text-center mb-6">
+        <div className="text-center mb-5">
           <h2 className="handwritten text-3xl text-stone-800 font-bold mb-1">Ποιος ξεκινάει;</h2>
           <p className="body-font text-stone-500">{teamNames[0]} <span className="mx-2 text-stone-300">vs</span> {teamNames[1]}</p>
         </div>
 
-        {/* LOADING */}
         {phase === 'loading' && (
           <p className="body-font text-center text-stone-500 animate-pulse">Φόρτωση ερώτησης…</p>
         )}
 
-        {/* ERROR */}
         {phase === 'error' && (
           <div className="text-center space-y-3">
             <p className="body-font text-red-500">Δεν φορτώθηκε ερώτηση.</p>
-            <button onClick={() => onComplete(0)} className="body-font bg-stone-800 text-white py-2 px-6 rounded-xl">
+            <button onClick={() => onComplete(0)} className="body-font bg-stone-800 text-white py-3 px-6 rounded-xl min-h-[48px]">
               Συνέχεια χωρίς ερώτηση
             </button>
           </div>
         )}
 
-        {/* READY */}
         {phase === 'ready' && (
           <div className="bg-white rounded-2xl p-5 card-shadow text-center space-y-4">
-            <p className="body-font text-stone-500 text-sm uppercase tracking-wide">Ερώτηση νομίσματος</p>
+            <p className="body-font text-stone-500 text-xs uppercase tracking-wide">Ερώτηση νομίσματος</p>
             <p className="body-font text-stone-800 text-lg font-bold leading-snug">{question.q}</p>
-            <p className="body-font text-stone-500 text-sm">Κάθε ομάδα δίνει μια εκτίμηση — ο πιο κοντά διαλέγει σειρά</p>
+            <p className="body-font text-stone-500 text-sm">Κάθε ομάδα δίνει εκτίμηση — ο πιο κοντά διαλέγει σειρά</p>
             <button
               onClick={() => setPhase('team1')}
-              className="body-font w-full bg-stone-800 text-white py-3 rounded-xl text-lg font-bold hover:bg-stone-700 transition">
+              className="body-font w-full bg-stone-800 text-white py-3 rounded-xl text-lg font-bold active:bg-stone-700 transition min-h-[52px]">
               Ξεκινάμε →
             </button>
           </div>
         )}
 
-        {/* TEAM 1 GUESS */}
         {phase === 'team1' && (
           <div className="bg-red-50 border-4 border-red-500 rounded-2xl p-5 card-shadow space-y-4">
             <p className="body-font text-red-600 font-bold text-center text-lg">🔴 {teamNames[0]}</p>
             <p className="body-font text-stone-800 font-bold text-center leading-snug">{question.q}</p>
             <input
+              ref={inputRef}
               type="number"
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleGuess()}
-              placeholder="Εκτίμηση σε λεπτά..."
-              className="body-font w-full border-2 border-red-300 rounded-xl px-4 py-3 text-lg text-stone-900 focus:outline-none focus:border-red-500"
-              autoFocus
+              placeholder="Εκτίμηση..."
+              className="body-font w-full border-2 border-red-300 rounded-xl px-4 py-3 text-stone-900 focus:outline-none focus:border-red-500 min-h-[52px]"
             />
             <button
               onClick={handleGuess}
               disabled={!input.trim()}
-              className="body-font w-full bg-red-600 text-white py-3 rounded-xl text-lg font-bold hover:bg-red-700 disabled:opacity-40 transition">
+              className="body-font w-full bg-red-600 text-white py-3 rounded-xl text-lg font-bold active:bg-red-700 disabled:opacity-40 transition min-h-[52px]">
               Κλείδωμα →
             </button>
           </div>
         )}
 
-        {/* TEAM 2 GUESS */}
         {phase === 'team2' && (
           <div className="bg-blue-50 border-4 border-blue-500 rounded-2xl p-5 card-shadow space-y-4">
             <p className="body-font text-blue-700 font-bold text-center text-lg">🔵 {teamNames[1]}</p>
             <p className="body-font text-stone-800 font-bold text-center leading-snug">{question.q}</p>
             <input
+              ref={inputRef}
               type="number"
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleGuess()}
-              placeholder="Εκτίμηση σε λεπτά..."
-              className="body-font w-full border-2 border-blue-300 rounded-xl px-4 py-3 text-lg text-stone-900 focus:outline-none focus:border-blue-500"
-              autoFocus
+              placeholder="Εκτίμηση..."
+              className="body-font w-full border-2 border-blue-300 rounded-xl px-4 py-3 text-stone-900 focus:outline-none focus:border-blue-500 min-h-[52px]"
             />
             <button
               onClick={handleGuess}
               disabled={!input.trim()}
-              className="body-font w-full bg-blue-700 text-white py-3 rounded-xl text-lg font-bold hover:bg-blue-800 disabled:opacity-40 transition">
+              className="body-font w-full bg-blue-700 text-white py-3 rounded-xl text-lg font-bold active:bg-blue-800 disabled:opacity-40 transition min-h-[52px]">
               Κλείδωμα →
             </button>
           </div>
         )}
 
-        {/* REVEAL */}
         {phase === 'reveal' && (
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="bg-white rounded-2xl p-4 card-shadow text-center">
               <p className="body-font text-stone-500 text-sm mb-1">{question.q}</p>
-              <p className="body-font text-stone-500 text-sm">Σωστή απάντηση</p>
+              <p className="body-font text-stone-500 text-xs">Σωστή απάντηση</p>
               <span className="handwritten text-5xl font-bold text-amber-600">
                 {question.answer}
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               {[0, 1].map(i => {
                 const correct = parseInt(question.answer.replace(/\D/g, ''), 10);
                 const diff = Math.abs(guesses[i] - correct);
@@ -1371,7 +1387,7 @@ function CoinFlip({ sharedStyle, teamNames, onComplete }) {
                       {i === 0 ? '🔴' : '🔵'} {teamNames[i]}
                     </p>
                     <p className="handwritten text-3xl font-bold text-stone-800">{guesses[i]}'</p>
-                    <p className="body-font text-xs text-stone-400">διαφορά {diff}'</p>
+                    <p className="body-font text-xs text-stone-400">Δ {diff}'</p>
                     {isWinner && <p className="handwritten text-base text-green-600 font-bold mt-1">✓ Επιλέγει!</p>}
                   </div>
                 );
@@ -1384,21 +1400,20 @@ function CoinFlip({ sharedStyle, teamNames, onComplete }) {
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => onComplete(winner)}
-                className="body-font bg-stone-800 text-white py-3 rounded-xl font-bold hover:bg-stone-700">
+                className="body-font bg-stone-800 text-white py-3 rounded-xl font-bold active:bg-stone-700 min-h-[52px]">
                 Παίζω 1ος 🥇
               </button>
               <button
                 onClick={() => onComplete(winner === 0 ? 1 : 0)}
-                className="body-font bg-stone-500 text-white py-3 rounded-xl font-bold hover:bg-stone-400">
+                className="body-font bg-stone-500 text-white py-3 rounded-xl font-bold active:bg-stone-400 min-h-[52px]">
                 Παίζω 2ος
               </button>
             </div>
           </div>
         )}
-
       </div>
     </div>
   );
@@ -1408,13 +1423,12 @@ function CoinFlip({ sharedStyle, teamNames, onComplete }) {
 // TIEBREAKER
 // ============================================================================
 function Tiebreaker({ sharedStyle, teamNames, onWinner }) {
-  const [question, setQuestion] = useState(null);   // { question, options, correctIndex }
+  const [question, setQuestion] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [chosen, setChosen] = useState(null);        // index of tapped option
-  const [revealed, setRevealed] = useState(false);   // true after answer shown
- 
-  // Fetch a fresh tiebreaker question on mount
+  const [chosen, setChosen] = useState(null);
+  const [revealed, setRevealed] = useState(false);
+
   useEffect(() => {
     fetch('/api/tiebreaker', { method: 'POST' })
       .then((r) => {
@@ -1430,79 +1444,65 @@ function Tiebreaker({ sharedStyle, teamNames, onWinner }) {
         setLoading(false);
       });
   }, []);
- 
+
   const handlePick = (optionIndex) => {
     if (revealed || chosen !== null) return;
     setChosen(optionIndex);
     setRevealed(true);
   };
- 
+
   const handleWinnerSelect = (teamIdx) => {
-    onWinner(teamIdx);
+    const winner = chosen === question.correctIndex ? teamIdx : teamIdx === 0 ? 1 : 0;
+    onWinner(winner);
   };
- 
-  // Option button styles
-  const optionBase =
-    'w-full py-5 px-4 rounded-2xl body-font text-xl font-bold border-4 transition card-shadow text-center leading-snug';
- 
+
+  const optionBase = 'w-full py-4 px-4 rounded-2xl body-font text-xl font-bold border-4 transition card-shadow text-center leading-snug min-h-[64px]';
+
   const getOptionStyle = (idx) => {
     if (!revealed) {
-      // Before answer revealed — both options look neutral/inviting
-      return `${optionBase} bg-white border-stone-400 text-stone-800 hover:border-amber-500 hover:bg-amber-50 active:scale-95 cursor-pointer`;
+      return `${optionBase} bg-white border-stone-400 text-stone-800 active:scale-95 cursor-pointer`;
     }
     const isCorrect = idx === question.correctIndex;
     const isChosen = idx === chosen;
- 
-    if (isCorrect) {
-      return `${optionBase} bg-green-100 border-green-600 text-green-800`;
-    }
-    if (isChosen && !isCorrect) {
-      return `${optionBase} bg-red-100 border-red-500 text-red-700`;
-    }
+
+    if (isCorrect) return `${optionBase} bg-green-100 border-green-600 text-green-800`;
+    if (isChosen && !isCorrect) return `${optionBase} bg-red-100 border-red-500 text-red-700`;
     return `${optionBase} bg-stone-100 border-stone-300 text-stone-400`;
   };
- 
+
   return (
-    <div
-      className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-50 p-4 flex flex-col items-center justify-center"
-      style={{ fontFamily: "'Patrick Hand', cursive" }}
-    >
+    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-50 px-4 flex flex-col items-center justify-center safe-bottom" style={{ fontFamily: "'Patrick Hand', cursive" }}>
       <style>{sharedStyle}</style>
-      <div className="max-w-md w-full space-y-4">
- 
-        {/* Header */}
+      <div className="max-w-md w-full space-y-3">
         <div className="bg-amber-500 rounded-2xl py-3 px-4 text-center card-shadow">
           <div className="flex items-center justify-center gap-2">
-            <AlertTriangle size={24} className="text-white" />
+            <AlertTriangle size={22} className="text-white" />
             <h2 className="handwritten text-2xl text-white font-bold">ΑΙΦΝΙΔΙΑΣΤΙΚΟΣ ΓΥΡΟΣ</h2>
           </div>
-          <p className="body-font text-amber-50 text-sm mt-1">
-            Ισοπαλία! Διάλεξτε μαζί — όποιος επιλέξει σωστά κερδίζει.
+          <p className="body-font text-amber-50 text-xs mt-1">
+            Ισοπαλία! Διάλεξτε — όποιος επιλέξει σωστά κερδίζει.
           </p>
         </div>
- 
-        {/* Loading state */}
+
         {loading && (
           <div className="bg-white rounded-2xl p-8 card-shadow flex flex-col items-center gap-3 border-4 border-stone-800">
             <Sparkles size={32} className="text-amber-500 animate-spin" />
             <p className="body-font text-stone-600 text-lg">Ετοιμάζεται ερώτηση…</p>
           </div>
         )}
- 
-        {/* Error state */}
+
         {error && !loading && (
           <div className="bg-red-50 rounded-2xl p-5 card-shadow border-4 border-red-500 text-center">
-            <p className="body-font text-red-700">⚠️ Αδυναμία φόρτωσης ερώτησης</p>
+            <p className="body-font text-red-700">⚠️ Αδυναμία φόρτωσης</p>
             <button
               onClick={() => { setError(null); setLoading(true); fetch('/api/tiebreaker', { method: 'POST' }).then(r => r.json()).then(d => { setQuestion(d); setLoading(false); }).catch(e => { setError(e.message); setLoading(false); }); }}
-              className="mt-3 body-font bg-red-600 text-white py-2 px-5 rounded-xl font-bold"
+              className="mt-3 body-font bg-red-600 text-white py-2.5 px-5 rounded-xl font-bold min-h-[48px]"
             >
               Δοκίμασε ξανά
             </button>
           </div>
         )}
- 
-        {/* Question + options */}
+
         {question && !loading && (
           <>
             <div className="bg-white rounded-2xl p-5 card-shadow border-4 border-stone-800">
@@ -1510,8 +1510,8 @@ function Tiebreaker({ sharedStyle, teamNames, onWinner }) {
                 {question.question}
               </p>
             </div>
- 
-            <div className="space-y-3">
+
+            <div className="space-y-2">
               {question.options.map((opt, idx) => (
                 <button
                   key={idx}
@@ -1521,47 +1521,34 @@ function Tiebreaker({ sharedStyle, teamNames, onWinner }) {
                 >
                   <span className="text-stone-400 mr-2">{idx === 0 ? 'A.' : 'B.'}</span>
                   {opt}
-                  {revealed && idx === question.correctIndex && (
-                    <span className="ml-2 text-green-600">✓</span>
-                  )}
-                  {revealed && idx === chosen && idx !== question.correctIndex && (
-                    <span className="ml-2 text-red-500">✗</span>
-                  )}
+                  {revealed && idx === question.correctIndex && <span className="ml-2 text-green-600">✓</span>}
+                  {revealed && idx === chosen && idx !== question.correctIndex && <span className="ml-2 text-red-500">✗</span>}
                 </button>
               ))}
             </div>
- 
-            {/* After reveal: show which team answered correctly */}
+
             {revealed && (
               <div className="bg-white rounded-2xl p-4 card-shadow border-4 border-amber-400 space-y-3">
-                <p className="body-font text-center text-stone-700 font-bold">
+                <p className="body-font text-center text-stone-700 font-bold text-sm">
                   {chosen === question.correctIndex
-                    ? '✅ Σωστή επιλογή! Ποια ομάδα το επέλεξε;'
-                    : '❌ Λάθος επιλογή! Ποια ομάδα το επέλεξε;'}
+                    ? '✅ Σωστή! Ποια ομάδα το επέλεξε;'
+                    : '❌ Λάθος! Ποια ομάδα το επέλεξε;'}
                 </p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2">
                   {[0, 1].map((teamIdx) => (
                     <button
                       key={teamIdx}
-                      onClick={() => {
-                        // If correct answer was picked, that team wins; otherwise the other wins
-                        const winner =
-                          chosen === question.correctIndex ? teamIdx : teamIdx === 0 ? 1 : 0;
-                        handleWinnerSelect(winner);
-                      }}
-                      className={`py-4 rounded-xl body-font font-bold border-4 text-lg transition active:scale-95 card-shadow ${
+                      onClick={() => handleWinnerSelect(teamIdx)}
+                      className={`py-4 rounded-xl body-font font-bold border-4 text-base transition active:scale-95 card-shadow min-h-[56px] ${
                         teamIdx === 0
-                          ? 'bg-red-50 border-red-600 text-red-700 hover:bg-red-100'
-                          : 'bg-blue-50 border-blue-700 text-blue-800 hover:bg-blue-100'
+                          ? 'bg-red-50 border-red-600 text-red-700 active:bg-red-100'
+                          : 'bg-blue-50 border-blue-700 text-blue-800 active:bg-blue-100'
                       }`}
                     >
                       {teamIdx === 0 ? '🔴' : '🔵'} {teamNames[teamIdx]}
                     </button>
                   ))}
                 </div>
-                <p className="text-center text-xs text-stone-400 body-font">
-                  Ο host επιβεβαιώνει ποια ομάδα απάντησε
-                </p>
               </div>
             )}
           </>
@@ -1570,6 +1557,7 @@ function Tiebreaker({ sharedStyle, teamNames, onWinner }) {
     </div>
   );
 }
+
 // ============================================================================
 // FINISHED SCREEN
 // ============================================================================
@@ -1578,16 +1566,16 @@ function FinishedScreen({ sharedStyle, teamNames, scores, breakdown, winnerIdx, 
   const winnerBg = winnerIdx === 0 ? 'from-red-500 to-red-700' : 'from-blue-600 to-blue-800';
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-50 p-4 flex flex-col items-center justify-center" style={{ fontFamily: "'Patrick Hand', cursive" }}>
+    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-50 px-4 flex flex-col items-center justify-center safe-bottom" style={{ fontFamily: "'Patrick Hand', cursive" }}>
       <style>{sharedStyle}</style>
       <div className="max-w-md w-full text-center">
-        <Trophy size={80} className="text-amber-500 mx-auto mb-3" strokeWidth={2} />
+        <Trophy size={72} className="text-amber-500 mx-auto mb-2" strokeWidth={2} />
         <h1 className="handwritten text-4xl text-stone-800 font-bold mb-2">Τέλος παιχνιδιού!</h1>
-        <div className={`bg-gradient-to-br ${winnerBg} rounded-2xl p-6 my-6 card-shadow`}>
+        <div className={`bg-gradient-to-br ${winnerBg} rounded-2xl p-5 my-4 card-shadow`}>
           <p className="body-font text-white/80 text-sm mb-1">Νικητές</p>
-          <p className="handwritten text-5xl text-white font-bold leading-tight break-words">{teamNames[winnerIdx]} 🏆</p>
+          <p className="handwritten text-4xl text-white font-bold leading-tight break-words">{teamNames[winnerIdx]} 🏆</p>
         </div>
-        <div className="bg-white rounded-2xl p-5 card-shadow mb-5">
+        <div className="bg-white rounded-2xl p-4 card-shadow mb-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <div className="body-font text-red-600 font-bold text-sm truncate">{teamNames[0]}</div>
@@ -1600,10 +1588,10 @@ function FinishedScreen({ sharedStyle, teamNames, scores, breakdown, winnerIdx, 
           </div>
         </div>
         <div className="flex flex-col gap-2">
-          <button onClick={() => setShowBreakdown(true)} className="body-font bg-white border-2 border-stone-300 text-stone-700 py-2 rounded-xl text-sm font-bold hover:bg-stone-50">
+          <button onClick={() => setShowBreakdown(true)} className="body-font bg-white border-2 border-stone-300 text-stone-700 py-3 rounded-xl text-sm font-bold active:bg-stone-50 min-h-[48px]">
             📊 Αναλυτική κατάσταση βαθμών
           </button>
-          <button onClick={onNewGame} className="body-font bg-stone-800 text-white py-3 rounded-xl text-lg font-bold hover:bg-stone-700 flex items-center justify-center gap-2">
+          <button onClick={onNewGame} className="body-font bg-stone-800 text-white py-3 rounded-xl text-lg font-bold active:bg-stone-700 flex items-center justify-center gap-2 min-h-[52px]">
             <RotateCcw size={18} /> Νέο παιχνίδι
           </button>
         </div>
