@@ -45,7 +45,7 @@ function shuffle(arr) {
 }
 
 function parseCsv(csvText) {
-  const lines = csvText.trim().split('\n');
+  const lines = csvText.trim().replace(/\r/g, '').split('\n');
   if (lines.length < 2) return [];
 
   const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
