@@ -81,10 +81,10 @@ function buildQuestion(row, name, slotIndex) {
         multiplier,
         slotIndex,
         question: row.period  || row.question || '',
-        answer:   row.player  || row.answer   || '',
+        answer:   row.year  || row.answer   || '',
         from:     row.from    || '',
         to:       row.to      || '',
-        year:     row.year    || '',
+        year:     row.player    || '',
         image_url: null,
       };
 
