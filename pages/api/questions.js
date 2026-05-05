@@ -81,10 +81,10 @@ function buildQuestion(row, name, slotIndex) {
         multiplier,
         slotIndex,
         question: row.period  || row.question || '',
-        answer:   row.year  || row.answer   || '',
+        answer:   row.player  || row.answer   || '',
         from:     row.from    || '',
         to:       row.to      || '',
-        year:     row.player    || '',
+        year:     row.year    || '',
         image_url: null,
       };
 
@@ -164,25 +164,21 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'No category URLs set — check env variables' });
     }
 
-    const results = await Promise.all(
-      tabs.map(async ({ name, url }) => {
-        try {
-          const response = await fetch(url);
-          const csv = await response.text();
-          const rows = parseCsv(csv);
-          if (name === 'Higher/Lower') {
-            console.log('Higher/Lower CSV first 200 chars:', csv.slice(0, 200));
-            console.log('Higher/Lower rows parsed:', rows.length);
-          }
-          const picked = shuffle(rows).slice(0, QUESTIONS_PER_CATEGORY);
-          const questions = picked.map((row, slotIndex) => buildQuestion(row, name, slotIndex));
-          return { name, questions };
-        } catch (err) {
-          console.error(`Failed to fetch tab: ${name}`, err);
-          return { name, questions: [] };
-        }
-      })
-    );
+    const results = [];
+    for (const { name, url } of tabs) {
+      try {
+        const response = await fetch(url);
+        const csv = await response.text();
+        const rows = parseCsv(csv);
+        const picked = shuffle(rows).slice(0, QUESTIONS_PER_CATEGORY);
+        const questions = picked.map((row, slotIndex) => buildQuestion(row, name, slotIndex));
+        results.push({ name, questions });
+      } catch (err) {
+        console.error(`Failed to fetch tab: ${name}`, err);
+        results.push({ name, questions: [] });
+      }
+      await new Promise(r => setTimeout(r, 100));
+    }
 
     const questions = {};
     results.forEach(({ name, questions: qs }) => {
