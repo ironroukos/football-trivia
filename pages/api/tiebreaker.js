@@ -264,4 +264,4 @@ function Tiebreaker({ sharedStyle, teamNames, onWinner }) {
       </div>
     </div>
   );
-    }
+}
