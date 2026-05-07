@@ -1408,36 +1408,36 @@ function CoinFlip({ sharedStyle, teamNames, onComplete }) {
 // ============================================================================
 // TIEBREAKER
 // ============================================================================
+
 function Tiebreaker({ sharedStyle, teamNames, onWinner }) {
   const [question, setQuestion] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // phase: 'team1' | 'team2' | 'reveal'
   const [phase, setPhase] = useState('team1');
   const [answers, setAnswers] = useState(['', '']);
   const [input, setInput] = useState('');
-  const [results, setResults] = useState([null, null]); // true/false per team
+  const [results, setResults] = useState([null, null]);
   const [verifying, setVerifying] = useState(false);
   const inputRef = useRef(null);
 
-  useEffect(() => {
+  function loadQuestion() {
+    setLoading(true);
+    setError(null);
+    setPhase('team1');
+    setAnswers(['', '']);
+    setResults([null, null]);
+    setInput('');
     fetch('/api/tiebreaker', { method: 'POST' })
       .then((r) => {
         if (!r.ok) throw new Error(`Server error ${r.status}`);
         return r.json();
       })
-      .then((data) => {
-        setQuestion(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message);
-        setLoading(false);
-      });
-  }, []);
+      .then((data) => { setQuestion(data); setLoading(false); })
+      .catch((err) => { setError(err.message); setLoading(false); });
+  }
 
-  // Focus input when phase changes
+  useEffect(() => { loadQuestion(); }, []);
+
   useEffect(() => {
     if ((phase === 'team1' || phase === 'team2') && inputRef.current) {
       const t = setTimeout(() => inputRef.current?.focus(), 300);
@@ -1452,8 +1452,6 @@ function Tiebreaker({ sharedStyle, teamNames, onWinner }) {
 
     const teamIdx = phase === 'team1' ? 0 : 1;
     const ans = input.trim();
-
-    // Check against correct option
     const correct = question.options[question.correctIndex];
     const normAns = ans.toLowerCase().trim();
     const normCorrect = correct.toLowerCase().trim();
@@ -1473,47 +1471,16 @@ function Tiebreaker({ sharedStyle, teamNames, onWinner }) {
     if (phase === 'team1') {
       setPhase('team2');
     } else {
-      // Both answered — determine winner
       setPhase('reveal');
     }
   }
 
-  function handleRevealWinner() {
+  function handleContinue() {
     const [r0, r1] = results;
     if (r0 && !r1) onWinner(0);
     else if (r1 && !r0) onWinner(1);
-    else if (r0 && r1) {
-      // Both correct — sudden death again? Or coin flip. Here we just re-ask.
-      // For simplicity, declare no winner and let caller handle (re-render with new question)
-      // We'll reload a new question
-      setLoading(true);
-      setError(null);
-      setPhase('team1');
-      setAnswers(['', '']);
-      setResults([null, null]);
-      setInput('');
-      fetch('/api/tiebreaker', { method: 'POST' })
-        .then(r => r.json())
-        .then(data => { setQuestion(data); setLoading(false); })
-        .catch(err => { setError(err.message); setLoading(false); });
-    } else {
-      // Both wrong — same, new question
-      setLoading(true);
-      setError(null);
-      setPhase('team1');
-      setAnswers(['', '']);
-      setResults([null, null]);
-      setInput('');
-      fetch('/api/tiebreaker', { method: 'POST' })
-        .then(r => r.json())
-        .then(data => { setQuestion(data); setLoading(false); })
-        .catch(err => { setError(err.message); setLoading(false); });
-    }
+    else loadQuestion(); // both correct or both wrong → new question
   }
-
-  const teamColor = phase === 'team1' || (phase === 'reveal')
-    ? { border: 'border-red-500', bg: 'bg-red-50', text: 'text-red-600', btn: 'bg-red-600 active:bg-red-700' }
-    : { border: 'border-blue-500', bg: 'bg-blue-50', text: 'text-blue-700', btn: 'bg-blue-700 active:bg-blue-800' };
 
   const currentTeamIdx = phase === 'team1' ? 0 : 1;
   const currentColor = currentTeamIdx === 0
@@ -1525,18 +1492,16 @@ function Tiebreaker({ sharedStyle, teamNames, onWinner }) {
       <style>{sharedStyle}</style>
       <div className="max-w-md w-full space-y-3">
 
-        {/* Header */}
         <div className="bg-amber-500 rounded-2xl py-3 px-4 text-center card-shadow">
           <div className="flex items-center justify-center gap-2">
             <AlertTriangle size={22} className="text-white" />
             <h2 className="handwritten text-2xl text-white font-bold">ΑΙΦΝΙΔΙΑΣΤΙΚΟΣ ΓΥΡΟΣ</h2>
           </div>
           <p className="body-font text-amber-50 text-xs mt-1">
-            Ισοπαλία! Κάθε ομάδα απαντά — ο πιο κοντά κερδίζει.
+            Ισοπαλία! Κάθε ομάδα απαντά ξεχωριστά.
           </p>
         </div>
 
-        {/* Loading */}
         {loading && (
           <div className="bg-white rounded-2xl p-8 card-shadow flex flex-col items-center gap-3 border-4 border-stone-800">
             <Sparkles size={32} className="text-amber-500 animate-spin" />
@@ -1544,26 +1509,17 @@ function Tiebreaker({ sharedStyle, teamNames, onWinner }) {
           </div>
         )}
 
-        {/* Error */}
         {error && !loading && (
           <div className="bg-red-50 rounded-2xl p-5 card-shadow border-4 border-red-500 text-center">
             <p className="body-font text-red-700">⚠️ Αδυναμία φόρτωσης</p>
-            <button
-              onClick={() => {
-                setError(null); setLoading(true);
-                fetch('/api/tiebreaker', { method: 'POST' }).then(r => r.json()).then(d => { setQuestion(d); setLoading(false); }).catch(e => { setError(e.message); setLoading(false); });
-              }}
-              className="mt-3 body-font bg-red-600 text-white py-2.5 px-5 rounded-xl font-bold min-h-[48px]"
-            >
+            <button onClick={loadQuestion} className="mt-3 body-font bg-red-600 text-white py-2.5 px-5 rounded-xl font-bold min-h-[48px]">
               Δοκίμασε ξανά
             </button>
           </div>
         )}
 
-        {/* Question + input per team */}
         {question && !loading && (phase === 'team1' || phase === 'team2') && (
           <>
-            {/* Question card */}
             <div className="bg-white rounded-2xl p-5 card-shadow border-4 border-stone-800">
               <p className="body-font text-xs text-stone-400 text-center uppercase tracking-wide mb-2">Ερώτηση</p>
               <p className="body-font text-xl text-stone-800 text-center leading-relaxed">
@@ -1578,19 +1534,16 @@ function Tiebreaker({ sharedStyle, teamNames, onWinner }) {
               </div>
             </div>
 
-            {/* Team input */}
             <div className={`${currentColor.bg} border-4 ${currentColor.border} rounded-2xl p-5 card-shadow space-y-3`}>
               <p className={`body-font font-bold text-center text-lg ${currentColor.text}`}>
                 {currentTeamIdx === 0 ? '🔴' : '🔵'} {teamNames[currentTeamIdx]}
               </p>
-              <p className="body-font text-stone-600 text-sm text-center">Διάλεξε — ή γράψε — την απάντησή σου:</p>
 
-              {/* Quick-pick buttons */}
               <div className="flex gap-2">
                 {question.options.map((opt, i) => (
                   <button
                     key={i}
-                    onClick={() => { setInput(opt); }}
+                    onClick={() => setInput(opt)}
                     className={`flex-1 py-3 px-2 rounded-xl border-2 body-font font-bold text-base transition min-h-[52px] text-center
                       ${input === opt
                         ? `${currentColor.btn} text-white border-transparent`
@@ -1613,7 +1566,6 @@ function Tiebreaker({ sharedStyle, teamNames, onWinner }) {
           </>
         )}
 
-        {/* Reveal */}
         {question && !loading && phase === 'reveal' && (
           <>
             <div className="bg-white rounded-2xl p-5 card-shadow border-4 border-stone-800">
@@ -1626,29 +1578,24 @@ function Tiebreaker({ sharedStyle, teamNames, onWinner }) {
               </div>
             </div>
 
-            {/* Team results */}
             <div className="grid grid-cols-2 gap-2">
-              {[0, 1].map(i => {
-                const isCorrect = results[i];
-                return (
-                  <div key={i} className={`rounded-xl p-3 text-center border-4 ${
-                    isCorrect
-                      ? i === 0 ? 'bg-red-50 border-red-500' : 'bg-blue-50 border-blue-500'
-                      : 'bg-stone-100 border-stone-300'
-                  }`}>
-                    <p className={`body-font text-xs font-bold uppercase mb-1 ${i === 0 ? 'text-red-600' : 'text-blue-700'}`}>
-                      {i === 0 ? '🔴' : '🔵'} {teamNames[i]}
-                    </p>
-                    <p className="handwritten text-2xl font-bold text-stone-800">{answers[i]}</p>
-                    <p className={`text-xl mt-1 ${isCorrect ? 'text-green-600' : 'text-red-500'}`}>
-                      {isCorrect ? '✓' : '✗'}
-                    </p>
-                  </div>
-                );
-              })}
+              {[0, 1].map(i => (
+                <div key={i} className={`rounded-xl p-3 text-center border-4 ${
+                  results[i]
+                    ? i === 0 ? 'bg-red-50 border-red-500' : 'bg-blue-50 border-blue-500'
+                    : 'bg-stone-100 border-stone-300'
+                }`}>
+                  <p className={`body-font text-xs font-bold uppercase mb-1 ${i === 0 ? 'text-red-600' : 'text-blue-700'}`}>
+                    {i === 0 ? '🔴' : '🔵'} {teamNames[i]}
+                  </p>
+                  <p className="handwritten text-2xl font-bold text-stone-800">{answers[i]}</p>
+                  <p className={`text-xl mt-1 ${results[i] ? 'text-green-600' : 'text-red-500'}`}>
+                    {results[i] ? '✓' : '✗'}
+                  </p>
+                </div>
+              ))}
             </div>
 
-            {/* Winner announcement or replay */}
             {results[0] !== results[1] ? (
               <div className={`rounded-xl py-3 text-center ${results[0] ? 'bg-red-600' : 'bg-blue-700'}`}>
                 <span className="handwritten text-2xl text-white font-bold">
@@ -1658,16 +1605,16 @@ function Tiebreaker({ sharedStyle, teamNames, onWinner }) {
             ) : (
               <div className="bg-amber-100 border-2 border-amber-500 rounded-xl py-2 px-4 text-center">
                 <p className="handwritten text-xl text-amber-800 font-bold">
-                  {results[0] ? '🤝 Και οι δύο σωστοί!' : '😅 Και οι δύο λάθος!'} Ξανά!
+                  {results[0] ? '🤝 Και οι δύο σωστοί!' : '😅 Και οι δύο λάθος!'} Νέα ερώτηση!
                 </p>
               </div>
             )}
 
             <button
-              onClick={handleRevealWinner}
+              onClick={handleContinue}
               className="body-font w-full bg-stone-800 text-white py-3 rounded-xl text-lg font-bold active:bg-stone-700 min-h-[52px]"
             >
-              {results[0] !== results[1] ? 'Συνέχεια →' : 'Νέα ερώτηση →'}
+              {results[0] !== results[1] ? 'Συνέχεια →' : 'Επόμενη ερώτηση →'}
             </button>
           </>
         )}
@@ -1675,6 +1622,7 @@ function Tiebreaker({ sharedStyle, teamNames, onWinner }) {
     </div>
   );
 }
+
 // ============================================================================
 // FINISHED SCREEN
 // ============================================================================
@@ -1716,4 +1664,4 @@ function FinishedScreen({ sharedStyle, teamNames, scores, breakdown, winnerIdx, 
       {showBreakdown && <BreakdownModal breakdown={breakdown} totals={scores} teamNames={teamNames} onClose={() => setShowBreakdown(false)} />}
     </div>
   );
-}
+  }
