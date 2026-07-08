@@ -84,7 +84,6 @@ const sharedStyle = `
 export default function FootballTrivia() {
   const [scores, setScores] = useState([0, 0]);
   const [scoreBreakdown, setScoreBreakdown] = useState({ 0: {}, 1: {} });
-  const [showBreakdown, setShowBreakdown] = useState(false);
   const [activeQuestion, setActiveQuestion] = useState(null);
   const [usedQuestions, setUsedQuestions] = useState({});
   const [turn, setTurn] = useState(0);
@@ -260,9 +259,9 @@ export default function FootballTrivia() {
           <h1 className="handwritten text-3xl font-bold text-stone-800 leading-none">FOOTBALL TRIVIA</h1>
         </header>
 
-        <div className="bg-red-600 rounded-xl py-1.5 px-3 mb-3 transform -rotate-1 card-shadow">
+        <div className={`rounded-xl py-1.5 px-3 mb-3 transform -rotate-1 card-shadow transition-colors ${turn === 0 ? 'bg-red-600' : 'bg-blue-700'}`}>
           <p className="handwritten text-xl text-white text-center italic font-semibold">
-            Put some strategy on your game!
+            Σειρά: {teamNames[turn]}
           </p>
         </div>
 
@@ -285,22 +284,9 @@ export default function FootballTrivia() {
           ))}
         </div>
 
-        {/* Turn indicator */}
-        <div className="text-center mb-2">
-          <span className="body-font text-base text-stone-600">
-            Σειρά:{' '}
-            <span className={`font-bold text-lg ${turn === 0 ? 'text-red-600' : 'text-blue-700'}`}>
-              {teamNames[turn]}
-            </span>
-          </span>
-        </div>
-
         {/* Score panel */}
         <div className="bg-stone-100 rounded-2xl p-3 card-shadow">
-          <div className="bg-white border-2 border-stone-800 rounded-xl py-1.5 px-6 mx-auto mb-3 w-fit">
-            <h2 className="handwritten text-2xl text-stone-800 font-bold">Score</h2>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center mb-3">
             <TeamPanel
               color="red" name={teamNames[0]} value={scores[0]}
               onChange={(v) => setScores([v, scores[1]])}
@@ -310,6 +296,9 @@ export default function FootballTrivia() {
               onDisarmX2={() => turn === 0 && setActivePowerUp(null)}
               disabled={!!activeQuestion}
             />
+            <div className="bg-white border-2 border-stone-800 rounded-xl py-1.5 px-3 w-fit">
+              <h2 className="handwritten text-2xl text-stone-800 font-bold">Score</h2>
+            </div>
             <TeamPanel
               color="blue" name={teamNames[1]} value={scores[1]}
               onChange={(v) => setScores([scores[0], v])}
@@ -327,12 +316,6 @@ export default function FootballTrivia() {
               </span>
             </div>
           )}
-          <button
-            onClick={() => setShowBreakdown(true)}
-            className="mt-2 w-full body-font text-stone-700 bg-white border-2 border-stone-300 hover:bg-stone-50 active:bg-stone-100 rounded-xl py-2 text-sm font-bold flex items-center justify-center gap-2 min-h-[44px]"
-          >
-            📊 Αναλυτική κατάσταση βαθμών
-          </button>
         </div>
 
         <button
@@ -342,10 +325,6 @@ export default function FootballTrivia() {
           <RotateCcw size={16} /> Νέο παιχνίδι
         </button>
       </div>
-
-      {showBreakdown && (
-        <BreakdownModal breakdown={scoreBreakdown} totals={scores} teamNames={teamNames} onClose={() => setShowBreakdown(false)} />
-      )}
 
       {activeQuestion && (
         <QuestionModal
