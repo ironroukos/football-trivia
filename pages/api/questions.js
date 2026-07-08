@@ -119,7 +119,6 @@ function buildQuestion(row, name, slotIndex) {
         question:   row.question      || '',
         answer:     row.answer        || '',
         image_url:  row['img_url']    || null,
-        fiftyWrong: row['50-50 help'] || '',
       };
 
     case 'higherlower':
