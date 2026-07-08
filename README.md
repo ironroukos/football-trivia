@@ -18,7 +18,7 @@ Open [http://localhost:3000](http://localhost:3000) to play.
 Create a `.env.local` file:
 
 ```env
-# Anthropic API key — used for fuzzy answer verification and 50/50 lifeline
+# Anthropic API key — used for fuzzy answer verification
 ANTHROPIC_API_KEY=sk-ant-...
 
 # Google Sheets CSV tabs (use || as separator between name/URL pairs)
@@ -44,7 +44,6 @@ pages/
   api/
     questions.js    — Fetches & shuffles questions from Google Sheets CSVs
     verify.js       — Claude-powered answer verification with local normalize fallback
-    fifty.js        — Claude-powered 50/50 lifeline distractor generation
 lib/
   normalize.js      — Shared Greek/Latin transliteration + accent stripping
   rateLimit.js      — Simple in-memory IP rate limiter for API routes
