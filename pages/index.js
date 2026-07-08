@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Beer, Check, X, RotateCcw, Sparkles, Minus, Plus, HelpCircle, Trophy, AlertTriangle } from 'lucide-react';
+import { Beer, Check, X, RotateCcw, Sparkles, Minus, Plus, Trophy, AlertTriangle } from 'lucide-react';
 import { normalize } from '../lib/normalize'
 // ============================================================================
 // CATEGORY CONFIG
@@ -38,20 +38,6 @@ async function verifyAnswer(sheetAnswer, userAnswer, questionContext = '', categ
       canonical: sheetAnswer.split('|')[0],
       note: 'Offline check',
     };
-  }
-}
-
-async function generateFiftyFifty(sheetAnswer, category, questionContext = '') {
-  try {
-    const res = await fetch('/api/fifty', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sheetAnswer, category, questionContext }),
-    });
-    const data = await res.json();
-    return data.options;
-  } catch {
-    return [sheetAnswer.split('|')[0], 'Άλλη επιλογή'];
   }
 }
 
@@ -102,7 +88,7 @@ export default function FootballTrivia() {
   const [activeQuestion, setActiveQuestion] = useState(null);
   const [usedQuestions, setUsedQuestions] = useState({});
   const [turn, setTurn] = useState(0);
-  const [powerUps, setPowerUps] = useState({ 0: { x2: true, fifty: true }, 1: { x2: true, fifty: true } });
+  const [powerUps, setPowerUps] = useState({ 0: { x2: true }, 1: { x2: true } });
   const [activePowerUp, setActivePowerUp] = useState(null);
   const [questionResolved, setQuestionResolved] = useState(false);
   const [phase, setPhase] = useState('landing');
@@ -166,7 +152,6 @@ export default function FootballTrivia() {
   const handleUsePowerUp = (type) => {
     if (!powerUps[turn][type]) return;
     if (type === 'x2' && activeQuestion) return;
-    if (type === 'fifty' && !activeQuestion) return;
     setActivePowerUp(type);
   };
 
@@ -188,9 +173,6 @@ export default function FootballTrivia() {
     if (activePowerUp === 'x2' && basePoints > 0) {
       pts = basePoints * 2;
       consumePowerUp('x2');
-    } else if (activePowerUp === 'fifty') {
-      pts = basePoints > 0 ? 1 : 0;
-      consumePowerUp('fifty');
     }
 
     setScores((prev) => {
@@ -227,7 +209,7 @@ export default function FootballTrivia() {
     setScoreBreakdown({ 0: {}, 1: {} });
     setUsedQuestions({});
     setTurn(0);
-    setPowerUps({ 0: { x2: true, fifty: true }, 1: { x2: true, fifty: true } });
+    setPowerUps({ 0: { x2: true }, 1: { x2: true } });
     setActivePowerUp(null);
     setActiveQuestion(null);
     setQuestionResolved(false);
@@ -460,13 +442,6 @@ function TeamPanel({ color, name, value, onChange, active, powerUps, activePower
         >
           {x2Armed ? '⚡ ×2' : '×2'}
         </button>
-        <span
-          className={`text-xs px-2 py-1.5 rounded-full border-2 font-bold min-h-[36px] flex items-center ${
-            powerUps.fifty ? 'bg-cyan-400 border-cyan-600 text-stone-900' : 'bg-stone-200 border-stone-300 text-stone-400 line-through'
-          }`}
-        >
-          50/50
-        </span>
       </div>
     </div>
   );
@@ -519,8 +494,6 @@ function BreakdownModal({ breakdown, totals, teamNames = ['RED', 'BLUE'], onClos
 function QuestionModal({ question, onFinish, onAward, onResolved, activePowerUp, onUsePowerUp, availablePowerUps, turn }) {
   const displayMultiplier = activePowerUp === 'x2'
     ? question.multiplier * 2
-    : activePowerUp === 'fifty'
-    ? 1
     : question.multiplier;
 
   return (
@@ -533,7 +506,6 @@ function QuestionModal({ question, onFinish, onAward, onResolved, activePowerUp,
             <div className="handwritten text-xl text-amber-700 font-bold">
               Αξίζει ×{displayMultiplier}
               {activePowerUp === 'x2' && <span className="text-amber-500"> (×2!)</span>}
-              {activePowerUp === 'fifty' && <span className="text-cyan-600"> (50/50)</span>}
             </div>
           </div>
           <button onClick={onFinish} className="text-stone-500 hover:text-stone-800 min-w-[44px] min-h-[44px] flex items-center justify-center">
@@ -543,18 +515,6 @@ function QuestionModal({ question, onFinish, onAward, onResolved, activePowerUp,
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto modal-scroll px-4 pb-4">
-          {!activePowerUp && question.type !== 'top5' && question.type !== 'higherlower' && (
-            <div className="flex gap-2 mb-3">
-              <button
-                onClick={() => onUsePowerUp('fifty')}
-                disabled={!availablePowerUps.fifty}
-                className="flex-1 flex items-center justify-center gap-2 bg-cyan-400 border-2 border-cyan-600 text-stone-900 py-3 rounded-xl body-font font-bold disabled:opacity-40 disabled:cursor-not-allowed active:bg-cyan-300 transition min-h-[48px]"
-              >
-                <HelpCircle size={16} /> Χρήση 50/50
-              </button>
-            </div>
-          )}
-
           {(() => {
             const props = {
               question, onFinish, onAward, onResolved, activePowerUp,
@@ -585,19 +545,7 @@ function AnswerInput({ question, onFinish, onAward, onResolved, activePowerUp })
   const [userAnswer, setUserAnswer] = useState('');
   const [verifying, setVerifying] = useState(false);
   const [result, setResult] = useState(null);
-  const [fiftyOptions, setFiftyOptions] = useState(null);
-  const [loadingFifty, setLoadingFifty] = useState(false);
   const inputRef = useRef(null);
-
-  useEffect(() => {
-    if (activePowerUp === 'fifty' && !fiftyOptions && !loadingFifty) {
-      setLoadingFifty(true);
-      generateFiftyFifty(question.a, question.category, question.q).then((opts) => {
-        setFiftyOptions(opts);
-        setLoadingFifty(false);
-      });
-    }
-  }, [activePowerUp, fiftyOptions, loadingFifty, question]);
 
   // Delay focus to avoid iOS keyboard jump
   useEffect(() => {
@@ -635,32 +583,6 @@ function AnswerInput({ question, onFinish, onAward, onResolved, activePowerUp })
         <button onClick={onFinish} className="body-font mt-3 w-full bg-stone-800 text-white py-3 rounded-xl min-h-[48px] active:bg-stone-700">
           Σειρά επόμενης ομάδας →
         </button>
-      </div>
-    );
-  }
-
-  if (activePowerUp === 'fifty') {
-    if (loadingFifty || !fiftyOptions) {
-      return (
-        <div className="flex items-center justify-center gap-2 py-6">
-          <Sparkles size={22} className="animate-spin text-cyan-600" />
-          <span className="body-font text-lg text-stone-700">AI ετοιμάζει επιλογές…</span>
-        </div>
-      );
-    }
-    return (
-      <div className="space-y-3">
-        <p className="body-font text-sm text-cyan-700 text-center">Διάλεξε — πόντοι σε ×1</p>
-        {fiftyOptions.map((opt, i) => (
-          <button
-            key={i}
-            onClick={() => submit(opt)}
-            disabled={verifying}
-            className="w-full body-font bg-white border-2 border-cyan-600 text-stone-900 py-4 rounded-xl text-lg font-bold active:bg-cyan-50 transition disabled:opacity-50 min-h-[56px]"
-          >
-            {opt}
-          </button>
-        ))}
       </div>
     );
   }
@@ -771,20 +693,7 @@ function WhosMissingQuestion({ question, onAward, onSkip, multiplier, activePowe
   const [input, setInput] = useState('');
   const [result, setResult] = useState(null);
   const [verifying, setVerifying] = useState(false);
-  const [fiftyOptions, setFiftyOptions] = useState(null);
   const inputRef = useRef(null);
-
-  useEffect(() => {
-    if (activePowerUp === 'fifty' && !fiftyOptions) {
-      const correct = question.answer.split('|')[0];
-      const wrong   = question.fiftyWrong || '???';
-      const opts = [
-        { label: correct, correct: true },
-        { label: wrong,   correct: false },
-      ];
-      setFiftyOptions(Math.random() < 0.5 ? opts : [opts[1], opts[0]]);
-    }
-  }, [activePowerUp, fiftyOptions, question]);
 
   async function handleSubmit(answerText) {
     const ans = answerText ?? input;
@@ -838,22 +747,7 @@ function WhosMissingQuestion({ question, onAward, onSkip, multiplier, activePowe
         </div>
       )}
 
-      {fiftyOptions && !result && (
-        <div className="flex gap-3">
-          {fiftyOptions.map((opt, i) => (
-            <button
-              key={i}
-              onClick={() => handleSubmit(opt.label)}
-              disabled={verifying}
-              className="flex-1 bg-cyan-100 border-2 border-cyan-500 text-cyan-900 font-bold py-4 rounded-xl active:bg-cyan-200 disabled:opacity-50 transition min-h-[52px] body-font"
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {!fiftyOptions && !result && (
+      {!result && (
         <div className="flex gap-2">
           <input
             ref={inputRef}
