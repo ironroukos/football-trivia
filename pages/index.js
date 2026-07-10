@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Beer, Check, X, RotateCcw, Sparkles, Minus, Plus, Trophy, AlertTriangle } from 'lucide-react';
+import { Beer, Check, X, RotateCcw, Sparkles, Minus, Plus, Trophy } from 'lucide-react';
 import { normalize } from '../lib/normalize'
 // ============================================================================
 // CATEGORY CONFIG
@@ -121,10 +121,9 @@ export default function FootballTrivia() {
   useEffect(() => {
     if (phase !== 'play') return;
     if (Object.keys(usedQuestions).length >= totalSlots) {
-      if (scores[0] === scores[1]) setPhase('tiebreaker');
-      else setPhase('finished');
+      setPhase('finished');
     }
-  }, [usedQuestions, phase, scores, totalSlots]);
+  }, [usedQuestions, phase, totalSlots]);
 
   const openQuestion = (category, multiplier, slotIndex) => {
     const key = `${category}-${slotIndex}`;
@@ -221,15 +220,6 @@ export default function FootballTrivia() {
     setPhase('play');
   };
 
-  const resolveTiebreaker = (winnerIdx) => {
-    setScores((prev) => {
-      const next = [...prev];
-      next[winnerIdx] += 1;
-      return next;
-    });
-    setPhase('finished');
-  };
-
   if (phase === 'landing') {
     return <LandingPage sharedStyle={sharedStyle} teamNames={teamNames} onStart={(names) => { setTeamNames(names); setPhase('coinflip'); }} />;
   }
@@ -238,12 +228,8 @@ export default function FootballTrivia() {
     return <CoinFlip sharedStyle={sharedStyle} teamNames={teamNames} onComplete={(winnerIdx) => startGame(winnerIdx)} />;
   }
 
-  if (phase === 'tiebreaker') {
-    return <Tiebreaker sharedStyle={sharedStyle} teamNames={teamNames} onWinner={resolveTiebreaker} />;
-  }
-
   if (phase === 'finished') {
-    const winnerIdx = scores[0] > scores[1] ? 0 : 1;
+    const winnerIdx = scores[0] === scores[1] ? null : (scores[0] > scores[1] ? 0 : 1);
     return <FinishedScreen sharedStyle={sharedStyle} teamNames={teamNames} scores={scores} breakdown={scoreBreakdown} winnerIdx={winnerIdx} onNewGame={resetGame} />;
   }
 
@@ -1278,185 +1264,12 @@ function CoinFlip({ sharedStyle, teamNames, onComplete }) {
   );
 }
 // ============================================================================
-// TIEBREAKER
-// ============================================================================
-function Tiebreaker({ sharedStyle, teamNames, onWinner }) {
-  const [question, setQuestion] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [phase, setPhase] = useState('team1'); // 'team1' | 'team2' | 'reveal'
-  const [answers, setAnswers] = useState(['', '']);
-  const [results, setResults] = useState([null, null]);
-
-  function loadQuestion() {
-    setLoading(true);
-    setError(null);
-    setPhase('team1');
-    setAnswers(['', '']);
-    setResults([null, null]);
-    fetch('/api/tiebreaker', { method: 'POST' })
-      .then((r) => {
-        if (!r.ok) throw new Error(`Server error ${r.status}`);
-        return r.json();
-      })
-      .then((data) => { setQuestion(data); setLoading(false); })
-      .catch((err) => { setError(err.message); setLoading(false); });
-  }
-
-  useEffect(() => { loadQuestion(); }, []);
-
-  function handlePick(teamIdx, option) {
-    const correct = question.options[question.correctIndex];
-    const isCorrect = option === correct;
-
-    const newAnswers = [...answers];
-    newAnswers[teamIdx] = option;
-    setAnswers(newAnswers);
-
-    const newResults = [...results];
-    newResults[teamIdx] = isCorrect;
-    setResults(newResults);
-
-    if (teamIdx === 0) {
-      setPhase('team2');
-    } else {
-      setPhase('reveal');
-    }
-  }
-
-  function handleContinue() {
-    const [r0, r1] = results;
-    if (r0 && !r1) onWinner(0);
-    else if (r1 && !r0) onWinner(1);
-    else loadQuestion(); // και οι δύο σωστοί ή λάθος → νέα ερώτηση
-  }
-
-  const currentTeamIdx = phase === 'team1' ? 0 : 1;
-  const currentColor = currentTeamIdx === 0
-    ? { border: 'border-red-500', bg: 'bg-red-50', text: 'text-red-600', btn: 'bg-red-600 active:bg-red-700', btnInactive: 'bg-white border-stone-300 text-stone-700' }
-    : { border: 'border-blue-500', bg: 'bg-blue-50', text: 'text-blue-700', btn: 'bg-blue-700 active:bg-blue-800', btnInactive: 'bg-white border-stone-300 text-stone-700' };
-
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-50 px-4 flex flex-col items-center justify-center safe-bottom" style={{ fontFamily: "'Patrick Hand', cursive" }}>
-      <style>{sharedStyle}</style>
-      <div className="max-w-md w-full space-y-3">
-
-        <div className="bg-amber-500 rounded-2xl py-3 px-4 text-center card-shadow">
-          <div className="flex items-center justify-center gap-2">
-            <AlertTriangle size={22} className="text-white" />
-            <h2 className="handwritten text-2xl text-white font-bold">ΑΙΦΝΙΔΙΑΣΤΙΚΟΣ ΓΥΡΟΣ</h2>
-          </div>
-          <p className="body-font text-amber-50 text-xs mt-1">
-            Ισοπαλία! Κάθε ομάδα απαντά ξεχωριστά.
-          </p>
-        </div>
-
-        {loading && (
-          <div className="bg-white rounded-2xl p-8 card-shadow flex flex-col items-center gap-3 border-4 border-stone-800">
-            <Sparkles size={32} className="text-amber-500 animate-spin" />
-            <p className="body-font text-stone-600 text-lg">Ετοιμάζεται ερώτηση…</p>
-          </div>
-        )}
-
-        {error && !loading && (
-          <div className="bg-red-50 rounded-2xl p-5 card-shadow border-4 border-red-500 text-center">
-            <p className="body-font text-red-700">⚠️ Αδυναμία φόρτωσης</p>
-            <button onClick={loadQuestion} className="mt-3 body-font bg-red-600 text-white py-2.5 px-5 rounded-xl font-bold min-h-[48px]">
-              Δοκίμασε ξανά
-            </button>
-          </div>
-        )}
-
-        {question && !loading && (phase === 'team1' || phase === 'team2') && (
-          <>
-            <div className="bg-white rounded-2xl p-5 card-shadow border-4 border-stone-800">
-              <p className="body-font text-xl text-stone-800 text-center leading-relaxed">
-                {question.question}
-              </p>
-            </div>
-
-            <div className={`${currentColor.bg} border-4 ${currentColor.border} rounded-2xl p-5 card-shadow space-y-3`}>
-              <p className={`body-font font-bold text-center text-lg ${currentColor.text}`}>
-                {currentTeamIdx === 0 ? '🔴' : '🔵'} {teamNames[currentTeamIdx]} — διάλεξε:
-              </p>
-              <div className="flex gap-3">
-                {question.options.map((opt, i) => (
-                  <button
-                    key={i}
-                    onClick={() => handlePick(currentTeamIdx, opt)}
-                    className={`flex-1 py-4 px-2 rounded-xl border-2 body-font font-bold text-base min-h-[60px] text-center active:scale-95 transition ${currentColor.btnInactive}`}
-                  >
-                    {opt}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
-
-        {question && !loading && phase === 'reveal' && (
-          <>
-            <div className="bg-white rounded-2xl p-5 card-shadow border-4 border-stone-800">
-              <p className="body-font text-xl text-stone-800 text-center leading-relaxed mb-3">
-                {question.question}
-              </p>
-              <div className="bg-amber-100 border-2 border-amber-500 rounded-xl py-2 px-4 text-center">
-                <p className="body-font text-xs text-amber-700 uppercase tracking-wide">Σωστή απάντηση</p>
-                <p className="handwritten text-3xl font-bold text-amber-800">{question.options[question.correctIndex]}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              {[0, 1].map(i => (
-                <div key={i} className={`rounded-xl p-3 text-center border-4 ${
-                  results[i]
-                    ? i === 0 ? 'bg-red-50 border-red-500' : 'bg-blue-50 border-blue-500'
-                    : 'bg-stone-100 border-stone-300'
-                }`}>
-                  <p className={`body-font text-xs font-bold uppercase mb-1 ${i === 0 ? 'text-red-600' : 'text-blue-700'}`}>
-                    {i === 0 ? '🔴' : '🔵'} {teamNames[i]}
-                  </p>
-                  <p className="handwritten text-2xl font-bold text-stone-800">{answers[i]}</p>
-                  <p className={`text-2xl mt-1 ${results[i] ? 'text-green-600' : 'text-red-500'}`}>
-                    {results[i] ? '✓' : '✗'}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            {results[0] !== results[1] ? (
-              <div className={`rounded-xl py-3 text-center ${results[0] ? 'bg-red-600' : 'bg-blue-700'}`}>
-                <span className="handwritten text-2xl text-white font-bold">
-                  🏆 {teamNames[results[0] ? 0 : 1]} κερδίζει!
-                </span>
-              </div>
-            ) : (
-              <div className="bg-amber-100 border-2 border-amber-500 rounded-xl py-2 px-4 text-center">
-                <p className="handwritten text-xl text-amber-800 font-bold">
-                  {results[0] ? '🤝 Και οι δύο σωστοί!' : '😅 Και οι δύο λάθος!'} Νέα ερώτηση!
-                </p>
-              </div>
-            )}
-
-            <button
-              onClick={handleContinue}
-              className="body-font w-full bg-stone-800 text-white py-3 rounded-xl text-lg font-bold active:bg-stone-700 min-h-[52px]"
-            >
-              {results[0] !== results[1] ? 'Συνέχεια →' : 'Επόμενη ερώτηση →'}
-            </button>
-          </>
-        )}
-
-      </div>
-    </div>
-  );
-}
-// ============================================================================
 // FINISHED SCREEN
 // ============================================================================
 function FinishedScreen({ sharedStyle, teamNames, scores, breakdown, winnerIdx, onNewGame }) {
   const [showBreakdown, setShowBreakdown] = useState(false);
-  const winnerBg = winnerIdx === 0 ? 'from-red-500 to-red-700' : 'from-blue-600 to-blue-800';
+  const isTie = winnerIdx === null;
+  const winnerBg = isTie ? 'from-stone-500 to-stone-700' : winnerIdx === 0 ? 'from-red-500 to-red-700' : 'from-blue-600 to-blue-800';
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-50 px-4 flex flex-col items-center justify-center safe-bottom" style={{ fontFamily: "'Patrick Hand', cursive" }}>
@@ -1465,8 +1278,17 @@ function FinishedScreen({ sharedStyle, teamNames, scores, breakdown, winnerIdx, 
         <Trophy size={72} className="text-amber-500 mx-auto mb-2" strokeWidth={2} />
         <h1 className="handwritten text-4xl text-stone-800 font-bold mb-2">Τέλος παιχνιδιού!</h1>
         <div className={`bg-gradient-to-br ${winnerBg} rounded-2xl p-5 my-4 card-shadow`}>
-          <p className="body-font text-white/80 text-sm mb-1">Νικητές</p>
-          <p className="handwritten text-4xl text-white font-bold leading-tight break-words">{teamNames[winnerIdx]} 🏆</p>
+          {isTie ? (
+            <>
+              <p className="body-font text-white/80 text-sm mb-1">Αποτέλεσμα</p>
+              <p className="handwritten text-4xl text-white font-bold leading-tight break-words">🤝 Ισοπαλία!</p>
+            </>
+          ) : (
+            <>
+              <p className="body-font text-white/80 text-sm mb-1">Νικητές</p>
+              <p className="handwritten text-4xl text-white font-bold leading-tight break-words">{teamNames[winnerIdx]} 🏆</p>
+            </>
+          )}
         </div>
         <div className="bg-white rounded-2xl p-4 card-shadow mb-4">
           <div className="grid grid-cols-2 gap-4">
