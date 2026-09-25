@@ -272,7 +272,7 @@ if (phase === 'orderPick') {
 
   if (phase === 'finished') {
     const winnerIdx = scores[0] === scores[1] ? null : (scores[0] > scores[1] ? 0 : 1);
-    return <FinishedScreen sharedStyle={sharedStyle} teamNames={teamNames} scores={scores} breakdown={scoreBreakdown} winnerIdx={winnerIdx} onNewGame={resetGame} />;
+    return <FinishedScreen sharedStyle={sharedStyle} teamNames={teamNames} scores={scores} breakdown={scoreBreakdown} winnerIdx={winnerIdx} onNewGame={resetGame} categories={activeCategories || []}/>;
   }
 
   // PLAY PHASE
@@ -457,7 +457,7 @@ function TeamPanel({ color, name, value, onChange, active, powerUps, activePower
 // ============================================================================
 // BREAKDOWN MODAL
 // ============================================================================
-function BreakdownModal({ breakdown, totals, teamNames = ['RED', 'BLUE'], onClose }) {
+function BreakdownModal({ breakdown, totals, teamNames = ['RED', 'BLUE'], categories = [], onClose }) {
   return (
     <div className="fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 backdrop-blur-sm">
       <div className="bg-gradient-to-b from-amber-50 to-orange-50 rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md p-4 sm:p-5 card-shadow border-t-4 sm:border-4 border-stone-800 max-h-[85vh] overflow-y-auto modal-scroll safe-bottom">
@@ -473,7 +473,7 @@ function BreakdownModal({ breakdown, totals, teamNames = ['RED', 'BLUE'], onClos
             <span className="text-red-600 w-16 text-center truncate" title={teamNames[0]}>{teamNames[0]}</span>
             <span className="text-blue-700 w-16 text-center truncate" title={teamNames[1]}>{teamNames[1]}</span>
           </div>
-          {(activeCategories || []).map((cat) => (
+            {categories.map((cat) => { => (
             const r = breakdown[0][cat.name] || 0;
             const b = breakdown[1][cat.name] || 0;
             return (
@@ -1382,7 +1382,7 @@ function CategoryPicker({ sharedStyle, pickerName, bank, onConfirm }) {
 // ============================================================================
 // FINISHED SCREEN
 // ============================================================================
-function FinishedScreen({ sharedStyle, teamNames, scores, breakdown, winnerIdx, onNewGame }) {
+function FinishedScreen({ sharedStyle, teamNames, scores, breakdown, winnerIdx, onNewGame, Categories }) {
   const [showBreakdown, setShowBreakdown] = useState(false);
   const isTie = winnerIdx === null;
   const winnerBg = isTie ? 'from-stone-500 to-stone-700' : winnerIdx === 0 ? 'from-red-500 to-red-700' : 'from-blue-600 to-blue-800';
@@ -1427,7 +1427,7 @@ function FinishedScreen({ sharedStyle, teamNames, scores, breakdown, winnerIdx, 
           </button>
         </div>
       </div>
-      {showBreakdown && <BreakdownModal breakdown={breakdown} totals={scores} teamNames={teamNames} onClose={() => setShowBreakdown(false)} />}
+      {showBreakdown && <BreakdownModal breakdown={breakdown} totals={scores} teamNames={teamNames} categories={categories} onClose={() => setShowBreakdown(false)} />}
     </div>
   );
 }
