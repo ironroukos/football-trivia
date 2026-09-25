@@ -9,6 +9,8 @@ const CATEGORY_MULTIPLIERS = {
   'Higher/Lower': 1,
   "Who's Missing": 3,
   'Top 5': 3,
+  'Club Combo': 2,
+  'Lost Files': 2,
 };
 
 const CATEGORY_TYPES = {
@@ -20,6 +22,8 @@ const CATEGORY_TYPES = {
   'Higher/Lower':     'higherlower',
   "Who's Missing":    'whomissing',
   'Top 5':            'top5',
+  'Club Combo':        'text',
+  'Lost Files':        'imageText',
 };
 
 const QUESTIONS_PER_CATEGORY = 2;
@@ -33,6 +37,8 @@ const CATEGORY_ENVS = [
   { name: 'Higher/Lower',     url: process.env.SHEET_Higher_Lower },
   { name: "Who's Missing",    url: process.env.SHEET_Whos_Missing },
   { name: 'Top 5',            url: process.env.SHEET_Top_5 },
+  { name: 'Club Combo',       url: process.env.SHEET_Club_Combo },
+  { name: 'Lost Files',       url: process.env.SHEET_Lost_Files },
 ];
 
 function shuffle(arr) {
