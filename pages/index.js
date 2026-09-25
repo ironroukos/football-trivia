@@ -694,13 +694,19 @@ function CareerTableQuestion({ question, onFinish, onAward, onResolved, activePo
         <div className="flex justify-between text-purple-100 body-font text-xs uppercase tracking-wide border-b border-purple-400 pb-2 mb-2">
           <span>Ομάδα</span><span>Περίοδος</span>
         </div>
-        <div className="max-h-48 overflow-y-auto modal-scroll">
-          {(question.career || []).map(([team, period], i) => (
-            <div key={i} className={`flex justify-between body-font text-white py-1.5 px-2 rounded ${i % 2 ? 'bg-purple-700/40' : ''}`}>
-              <span className="text-sm">{team}</span><span className="text-purple-200 text-sm">{period}</span>
-            </div>
-          ))}
-        </div>
+       <div className="overflow-visible">
+  {(question.career || []).map(([team, period], i) => (
+    <div
+      key={i}
+      className={`flex justify-between body-font text-white py-1.5 px-2 rounded ${
+        i % 2 ? 'bg-purple-700/40' : ''
+      }`}
+    >
+      <span className="text-sm">{team}</span>
+      <span className="text-purple-200 text-sm">{period}</span>
+    </div>
+  ))}
+</div>
       </div>
       <p className="body-font text-stone-600 text-center mb-3 text-sm">Ποιος είναι αυτός ο παίκτης;</p>
       <AnswerInput question={question} onFinish={onFinish} onAward={onAward} onResolved={onResolved} activePowerUp={activePowerUp} />
@@ -756,15 +762,14 @@ function WhosMissingQuestion({ question, onAward, onSkip, multiplier, activePowe
       <p className="text-center text-stone-500 text-sm body-font">Ποιος λείπει από την 11άδα;</p>
 
       {question.image_url && (
-        <div className="w-full rounded-xl overflow-hidden bg-black">
-          <img
-            src={question.image_url}
-            alt="Formation"
-            className="w-full h-auto object-contain"
-            style={{ maxHeight: '280px' }}
-          />
-        </div>
-      )}
+      <div className="w-full rounded-xl bg-black flex justify-center mb-3">
+    <img
+      src={question.image_url}
+      alt="Question"
+      className="w-full h-auto object-contain rounded-xl"
+    />
+  </div>
+)}
 
       {!result && (
         <div className="flex gap-2">
