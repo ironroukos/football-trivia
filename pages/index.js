@@ -4,15 +4,20 @@ import { normalize } from '../lib/normalize'
 // ============================================================================
 // CATEGORY CONFIG
 // ============================================================================
-const CATEGORIES = [
-  { name: 'History',         multipliers: [2, 2],    bg: '#8B4A2B', textColor: '#fff5e6' },
-  { name: 'Geography',       multipliers: [2, 2],    bg: '#4A9FD9', textColor: '#ffffff' },
-  { name: 'Logo Quiz',       multipliers: [1, 1],    bg: '#C8102E', textColor: '#ffffff' },
-  { name: 'Retro Transfers', multipliers: [2, 2],    bg: '#1B4E7C', textColor: '#ffffff' },
-  { name: 'Player ID',       multipliers: [2, 2],    bg: '#7B3FBF', textColor: '#ffffff' },
-  { name: 'Higher/Lower',    multipliers: [1, 1],    bg: '#EA7E1E', textColor: '#ffffff' },
-  { name: "Who's Missing",   multipliers: [3, 3],    bg: '#7BC142', textColor: '#f5ffe8' },
-  { name: 'Top 5',           multipliers: [3, 3],    bg: '#4A7C28', textColor: '#f5ffe8' },
+const FIXED_CATEGORIES = [
+  { name: 'History',       multipliers: [2, 2], bg: '#8B4A2B', textColor: '#fff5e6' },
+  { name: 'Geography',     multipliers: [2, 2], bg: '#4A9FD9', textColor: '#ffffff' },
+  { name: "Who's Missing", multipliers: [3, 3], bg: '#7BC142', textColor: '#f5ffe8' },
+  { name: 'Top 5',         multipliers: [3, 3], bg: '#4A7C28', textColor: '#f5ffe8' },
+  { name: 'Player ID',     multipliers: [2, 2], bg: '#7B3FBF', textColor: '#ffffff' },
+  { name: 'Logo Quiz',     multipliers: [1, 1], bg: '#C8102E', textColor: '#ffffff' },
+];
+
+const BANK_CATEGORIES = [
+  { name: 'Retro Transfers', multipliers: [2, 2], bg: '#1B4E7C', textColor: '#ffffff' },
+  { name: 'Higher/Lower',    multipliers: [1, 1], bg: '#EA7E1E', textColor: '#ffffff' },
+  { name: 'Club Combo',      multipliers: [2, 2], bg: '#2C7873', textColor: '#ffffff' },
+  { name: 'Lost Files',      multipliers: [2, 2], bg: '#5C4A6E', textColor: '#ffffff' },
 ];
 
 // ============================================================================
@@ -92,6 +97,10 @@ export default function FootballTrivia() {
   const [questionResolved, setQuestionResolved] = useState(false);
   const [phase, setPhase] = useState('landing');
   const [teamNames, setTeamNames] = useState(['RED team', 'BLUE team']);
+  const [winnerIdx, setWinnerIdx] = useState(null);
+  const [privilegeChoice, setPrivilegeChoice] = useState(null); // 'categories' | 'order'
+  const [activeCategories, setActiveCategories] = useState(null);
+  const [startingTeam, setStartingTeam] = useState(null);
 
   const [questions, setQuestions] = useState({});
   const [questionsLoading, setQuestionsLoading] = useState(false);
@@ -116,7 +125,7 @@ export default function FootballTrivia() {
       });
   }, [phase]);
 
-  const totalSlots = CATEGORIES.reduce((sum, c) => sum + c.multipliers.length, 0);
+ const totalSlots = (activeCategories || []).reduce((sum, c) => sum + c.multipliers.length, 0);
 
   useEffect(() => {
     if (phase !== 'play') return;
@@ -212,21 +221,54 @@ export default function FootballTrivia() {
     setActiveQuestion(null);
     setQuestionResolved(false);
     powerUpConsumedRef.current = false;
+    setWinnerIdx(null);
+    setPrivilegeChoice(null);
+    setActiveCategories(null);
+    setStartingTeam(null);
     setPhase('landing');
   };
 
-  const startGame = (startingTeam) => {
-    setTurn(startingTeam);
-    setPhase('play');
+  const startGame = (startIdx) => {
+  setTurn(startIdx);
+  setPhase('play');
   };
-
+  
   if (phase === 'landing') {
     return <LandingPage sharedStyle={sharedStyle} teamNames={teamNames} onStart={(names) => { setTeamNames(names); setPhase('coinflip'); }} />;
   }
 
-  if (phase === 'coinflip') {
-    return <CoinFlip sharedStyle={sharedStyle} teamNames={teamNames} onComplete={(winnerIdx) => startGame(winnerIdx)} />;
-  }
+if (phase === 'coinflip') {
+  return <CoinFlip sharedStyle={sharedStyle} teamNames={teamNames}
+    onComplete={(idx) => { setWinnerIdx(idx); setPhase('privilege'); }} />;
+}
+
+if (phase === 'privilege') {
+  return <PrivilegeChoice sharedStyle={sharedStyle} winnerName={teamNames[winnerIdx]}
+    onChoose={(choice) => {
+      setPrivilegeChoice(choice);
+      setPhase(choice === 'categories' ? 'categoryPick' : 'orderPick');
+    }} />;
+}
+
+if (phase === 'categoryPick') {
+  const pickerIdx = privilegeChoice === 'categories' ? winnerIdx : (winnerIdx === 0 ? 1 : 0);
+  return <CategoryPicker sharedStyle={sharedStyle} pickerName={teamNames[pickerIdx]} bank={BANK_CATEGORIES}
+    onConfirm={(picked) => {
+      setActiveCategories([...FIXED_CATEGORIES, ...picked]);
+      if (startingTeam !== null) startGame(startingTeam);
+      else setPhase('orderPick');
+    }} />;
+}
+
+if (phase === 'orderPick') {
+  const pickerIdx = privilegeChoice === 'order' ? winnerIdx : (winnerIdx === 0 ? 1 : 0);
+  return <OrderPicker sharedStyle={sharedStyle} pickerName={teamNames[pickerIdx]}
+    onChoose={(startIdx) => {
+      setStartingTeam(startIdx);
+      if (activeCategories !== null) startGame(startIdx);
+      else setPhase('categoryPick');
+    }} />;
+}
 
   if (phase === 'finished') {
     const winnerIdx = scores[0] === scores[1] ? null : (scores[0] > scores[1] ? 0 : 1);
@@ -265,7 +307,7 @@ export default function FootballTrivia() {
 
         {/* Category grid — 2 cols, bigger tap targets */}
         <div className="grid grid-cols-2 gap-2 mb-4">
-          {CATEGORIES.map((cat) => (
+         {(activeCategories || []).map((cat) => (
             <CategoryCard key={cat.name} category={cat} usedQuestions={usedQuestions} onPick={openQuestion} hasQuestions={(questions[cat.name] || []).length > 0} />
           ))}
         </div>
@@ -431,7 +473,7 @@ function BreakdownModal({ breakdown, totals, teamNames = ['RED', 'BLUE'], onClos
             <span className="text-red-600 w-16 text-center truncate" title={teamNames[0]}>{teamNames[0]}</span>
             <span className="text-blue-700 w-16 text-center truncate" title={teamNames[1]}>{teamNames[1]}</span>
           </div>
-          {CATEGORIES.map((cat) => {
+          {(activeCategories || []).map((cat) => (
             const r = breakdown[0][cat.name] || 0;
             const b = breakdown[1][cat.name] || 0;
             return (
@@ -1259,6 +1301,80 @@ function CoinFlip({ sharedStyle, teamNames, onComplete }) {
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function PrivilegeChoice({ sharedStyle, winnerName, onChoose }) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-amber-50 to-orange-50 px-4">
+      <style>{sharedStyle}</style>
+      <div className="max-w-sm w-full text-center space-y-4">
+        <h2 className="handwritten text-3xl text-stone-800 font-bold">{winnerName} κέρδισε!</h2>
+        <p className="body-font text-stone-600">Διάλεξε τι θα κρατήσεις:</p>
+        <button onClick={() => onChoose('categories')}
+          className="w-full bg-purple-700 text-white py-4 rounded-xl font-bold body-font text-lg card-shadow">
+          Δομώ το παιχνίδι
+        </button>
+        <button onClick={() => onChoose('order')}
+          className="w-full bg-blue-700 text-white py-4 rounded-xl font-bold body-font text-lg card-shadow">
+          Διαλέγω σειρά
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function OrderPicker({ sharedStyle, pickerName, onChoose }) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-amber-50 to-orange-50 px-4">
+      <style>{sharedStyle}</style>
+      <div className="max-w-sm w-full text-center space-y-4">
+        <h2 className="handwritten text-3xl text-stone-800 font-bold">{pickerName}</h2>
+        <p className="body-font text-stone-600">Διάλεξε σειρά:</p>
+        <button onClick={() => onChoose(0)} className="w-full bg-red-600 text-white py-4 rounded-xl font-bold body-font text-lg card-shadow">
+          Παίζω πρώτος/η
+        </button>
+        <button onClick={() => onChoose(1)} className="w-full bg-blue-700 text-white py-4 rounded-xl font-bold body-font text-lg card-shadow">
+          Παίζει πρώτος/η ο αντίπαλος
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CategoryPicker({ sharedStyle, pickerName, bank, onConfirm }) {
+  const [selected, setSelected] = useState([]);
+  const toggle = (cat) => {
+    setSelected((prev) =>
+      prev.includes(cat.name) ? prev.filter((n) => n !== cat.name)
+      : prev.length < 2 ? [...prev, cat.name] : prev
+    );
+  };
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-50 px-4 py-6">
+      <style>{sharedStyle}</style>
+      <div className="max-w-sm mx-auto space-y-4">
+        <h2 className="handwritten text-3xl text-stone-800 font-bold text-center">{pickerName}</h2>
+        <p className="body-font text-stone-600 text-center">Διάλεξε 2 κατηγορίες ({selected.length}/2)</p>
+        <div className="grid grid-cols-2 gap-2">
+          {bank.map((cat) => {
+            const isSel = selected.includes(cat.name);
+            return (
+              <button key={cat.name} onClick={() => toggle(cat)}
+                className="rounded-xl p-3 font-bold body-font text-sm card-shadow border-4"
+                style={{ backgroundColor: cat.bg, color: cat.textColor, borderColor: isSel ? '#1c1917' : 'transparent', opacity: isSel ? 1 : 0.55 }}>
+                {cat.name}
+              </button>
+            );
+          })}
+        </div>
+        <button disabled={selected.length !== 2}
+          onClick={() => onConfirm(bank.filter((c) => selected.includes(c.name)))}
+          className="w-full bg-stone-800 text-white py-4 rounded-xl font-bold body-font text-lg disabled:opacity-40">
+          Επιβεβαίωση
+        </button>
       </div>
     </div>
   );
