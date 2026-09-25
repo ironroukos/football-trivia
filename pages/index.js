@@ -659,11 +659,26 @@ function LogoQuestion({ question, onFinish, onAward, onResolved, activePowerUp }
 function ImageTextQuestion({ question, onFinish, onAward, onResolved, activePowerUp }) {
   return (
     <>
-      <div className="rounded-xl overflow-hidden mb-3 border-2 border-stone-300 bg-stone-100">
-        <img src={question.imageUrl} alt="question" className="w-full max-h-56 object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
+      <div className="rounded-xl mb-3 border-2 border-stone-300 bg-stone-100">
+        <img
+          src={question.imageUrl}
+          alt="question"
+          className="w-full h-auto object-contain rounded-xl"
+          onError={(e) => { e.target.style.display = 'none'; }}
+        />
       </div>
-      <p className="body-font text-lg text-stone-800 mb-3 text-center">{question.q}</p>
-      <AnswerInput question={question} onFinish={onFinish} onAward={onAward} onResolved={onResolved} activePowerUp={activePowerUp} />
+
+      <p className="body-font text-lg text-stone-800 mb-3 text-center">
+        {question.q}
+      </p>
+
+      <AnswerInput
+        question={question}
+        onFinish={onFinish}
+        onAward={onAward}
+        onResolved={onResolved}
+        activePowerUp={activePowerUp}
+      />
     </>
   );
 }
