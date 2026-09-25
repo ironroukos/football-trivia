@@ -236,19 +236,15 @@ export default function FootballTrivia() {
   if (phase === 'landing') {
     return <LandingPage sharedStyle={sharedStyle} teamNames={teamNames} onStart={(names) => { setTeamNames(names); setPhase('coinflip'); }} />;
   }
-
 if (phase === 'coinflip') {
   return <CoinFlip sharedStyle={sharedStyle} teamNames={teamNames}
-    onComplete={(idx) => { setWinnerIdx(idx); setPhase('privilege'); }} />;
-}
-
-if (phase === 'privilege') {
-  return <PrivilegeChoice sharedStyle={sharedStyle} winnerName={teamNames[winnerIdx]}
-    onChoose={(choice) => {
-      setPrivilegeChoice(choice);
-      setPhase(choice === 'categories' ? 'categoryPick' : 'orderPick');
+    onComplete={(idx, choice) => {
+      setWinnerIdx(idx);
+     setPrivilegeChoice(choice);
+     setPhase(choice === 'categories' ? 'categoryPick' : 'orderPick');   
     }} />;
 }
+
 
 if (phase === 'categoryPick') {
   const pickerIdx = privilegeChoice === 'categories' ? winnerIdx : (winnerIdx === 0 ? 1 : 0);
@@ -1281,24 +1277,16 @@ function CoinFlip({ sharedStyle, teamNames, onComplete }) {
               })}
             </div>
 
-            <div className={`rounded-xl py-3 text-center ${winnerBg}`}>
+        <div className={`rounded-xl py-3 text-center ${winnerBg}`}>
               <span className="handwritten text-2xl text-white font-bold">
-                {teamNames[winner]} επιλέγει σειρά!
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => onComplete(winner)}
-                className="body-font bg-stone-800 text-white py-3 rounded-xl font-bold active:bg-stone-700 min-h-[52px]">
-                Παίζω 1ος 🥇
-              </button>
-              <button
-                onClick={() => onComplete(winner === 0 ? 1 : 0)}
-                className="body-font bg-stone-500 text-white py-3 rounded-xl font-bold active:bg-stone-400 min-h-[52px]">
-                Παίζω 2ος
-              </button>
-            </div>
+             {teamNames[winner]} κερδίζει το coinflip!
+            </span>
+           </div>
+         <button
+            onClick={() => onComplete(winner)}
+         className="body-font w-full bg-stone-800 text-white py-3 rounded-xl text-lg font-bold active:bg-stone-700 transition min-h-[52px]">
+            Συνέχεια →
+         </button>
           </div>
         )}
       </div>
