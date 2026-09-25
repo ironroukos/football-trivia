@@ -473,7 +473,7 @@ function BreakdownModal({ breakdown, totals, teamNames = ['RED', 'BLUE'], catego
             <span className="text-red-600 w-16 text-center truncate" title={teamNames[0]}>{teamNames[0]}</span>
             <span className="text-blue-700 w-16 text-center truncate" title={teamNames[1]}>{teamNames[1]}</span>
           </div>
-            {categories.map((cat) => { => (
+            {categories.map((cat) => {
             const r = breakdown[0][cat.name] || 0;
             const b = breakdown[1][cat.name] || 0;
             return (
@@ -1382,7 +1382,7 @@ function CategoryPicker({ sharedStyle, pickerName, bank, onConfirm }) {
 // ============================================================================
 // FINISHED SCREEN
 // ============================================================================
-function FinishedScreen({ sharedStyle, teamNames, scores, breakdown, winnerIdx, onNewGame, Categories }) {
+function FinishedScreen({ sharedStyle, teamNames, scores, breakdown, winnerIdx, onNewGame, categories }) {
   const [showBreakdown, setShowBreakdown] = useState(false);
   const isTie = winnerIdx === null;
   const winnerBg = isTie ? 'from-stone-500 to-stone-700' : winnerIdx === 0 ? 'from-red-500 to-red-700' : 'from-blue-600 to-blue-800';
