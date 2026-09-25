@@ -7,10 +7,10 @@ import { normalize } from '../lib/normalize'
 const FIXED_CATEGORIES = [
   { name: 'History',       multipliers: [2, 2], bg: '#8B4A2B', textColor: '#fff5e6' },
   { name: 'Geography',     multipliers: [2, 2], bg: '#4A9FD9', textColor: '#ffffff' },
-  { name: "Who's Missing", multipliers: [3, 3], bg: '#7BC142', textColor: '#f5ffe8' },
-  { name: 'Top 5',         multipliers: [3, 3], bg: '#4A7C28', textColor: '#f5ffe8' },
-  { name: 'Player ID',     multipliers: [2, 2], bg: '#7B3FBF', textColor: '#ffffff' },
   { name: 'Logo Quiz',     multipliers: [1, 1], bg: '#C8102E', textColor: '#ffffff' },
+  { name: 'Player ID',     multipliers: [2, 2], bg: '#7B3FBF', textColor: '#ffffff' },
+  { name: "Who's Missing", multipliers: [3, 3], bg: '#7BC142', textColor: '#f5ffe8' },
+  { name: 'Top 5',         multipliers: [3, 3], bg: '#4A7C28', textColor: '#f5ffe8' }
 ];
 
 const BANK_CATEGORIES = [
