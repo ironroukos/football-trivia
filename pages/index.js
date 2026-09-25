@@ -237,14 +237,30 @@ export default function FootballTrivia() {
     return <LandingPage sharedStyle={sharedStyle} teamNames={teamNames} onStart={(names) => { setTeamNames(names); setPhase('coinflip'); }} />;
   }
 if (phase === 'coinflip') {
-  return <CoinFlip sharedStyle={sharedStyle} teamNames={teamNames}
-    onComplete={(idx, choice) => {
-      setWinnerIdx(idx);
-     setPrivilegeChoice(choice);
-     setPhase(choice === 'categories' ? 'categoryPick' : 'orderPick');   
-    }} />;
+  return (
+    <CoinFlip
+      sharedStyle={sharedStyle}
+      teamNames={teamNames}
+      onComplete={(idx) => {
+        setWinnerIdx(idx);
+        setPhase('privilegeChoice');
+      }}
+    />
+  );
 }
 
+if (phase === 'privilegeChoice') {
+  return (
+    <PrivilegeChoice
+      sharedStyle={sharedStyle}
+      winnerName={teamNames[winnerIdx]}
+      onChoose={(choice) => {
+        setPrivilegeChoice(choice);
+        setPhase(choice === 'categories' ? 'categoryPick' : 'orderPick');
+      }}
+    />
+  );
+}
 
 if (phase === 'categoryPick') {
   const pickerIdx = privilegeChoice === 'categories' ? winnerIdx : (winnerIdx === 0 ? 1 : 0);
