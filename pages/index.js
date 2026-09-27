@@ -17,7 +17,7 @@ const BANK_CATEGORIES = [
   { name: 'Retro Transfers', multipliers: [2, 2], bg: '#1B4E7C', textColor: '#ffffff' },
   { name: 'Higher/Lower',    multipliers: [1, 1], bg: '#EA7E1E', textColor: '#ffffff' },
   { name: 'Club Combo',      multipliers: [2, 2], bg: '#2C7873', textColor: '#ffffff' },
-  { name: 'Lost Files',      multipliers: [2, 2], bg: '#5C4A6E', textColor: '#ffffff' },
+  { name: 'Lost Files',      multipliers: [3, 3], bg: '#5C4A6E', textColor: '#ffffff' },
 ];
 
 // ============================================================================
