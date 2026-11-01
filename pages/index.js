@@ -1,23 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Beer, Check, X, RotateCcw, Sparkles, Minus, Plus, Trophy } from 'lucide-react';
-import { normalize } from '../lib/normalize'
+import { normalize } from '../lib/normalize';
+import { sameScore, splitNames } from '../lib/score';
 // ============================================================================
 // CATEGORY CONFIG
 // ============================================================================
-const FIXED_CATEGORIES = [
-  { name: 'History',       multipliers: [2, 2], bg: '#8B4A2B', textColor: '#fff5e6' },
-  { name: 'Geography',     multipliers: [2, 2], bg: '#4A9FD9', textColor: '#ffffff' },
-  { name: 'Logo Quiz',     multipliers: [1, 1], bg: '#C8102E', textColor: '#ffffff' },
-  { name: 'Player ID',     multipliers: [2, 2], bg: '#7B3FBF', textColor: '#ffffff' },
-  { name: "Who's Missing", multipliers: [3, 3], bg: '#7BC142', textColor: '#f5ffe8' },
-  { name: 'Top 5',         multipliers: [3, 3], bg: '#4A7C28', textColor: '#f5ffe8' }
-];
+// Every category is a free pick in the draft. Teams alternate until DRAFT_SIZE are chosen.
+// The multiplier on each chip is what the game actually uses (the API value is only a fallback).
+const DRAFT_SIZE = 8;
 
-const BANK_CATEGORIES = [
+const ALL_CATEGORIES = [
+  { name: 'History',         multipliers: [2, 2], bg: '#8B4A2B', textColor: '#fff5e6' },
+  { name: 'Geography',       multipliers: [2, 2], bg: '#4A9FD9', textColor: '#ffffff' },
+  { name: 'Logo Quiz',       multipliers: [1, 1], bg: '#C8102E', textColor: '#ffffff' },
+  { name: 'Player ID',       multipliers: [2, 2], bg: '#7B3FBF', textColor: '#ffffff' },
+  { name: 'Manager ID',      multipliers: [2, 2], bg: '#4338CA', textColor: '#ffffff' },
+  { name: "Who's Missing",   multipliers: [3, 3], bg: '#7BC142', textColor: '#f5ffe8' },
+  { name: 'Top 5',           multipliers: [3, 3], bg: '#4A7C28', textColor: '#f5ffe8' },
   { name: 'Retro Transfers', multipliers: [2, 2], bg: '#1B4E7C', textColor: '#ffffff' },
   { name: 'Higher/Lower',    multipliers: [1, 1], bg: '#EA7E1E', textColor: '#ffffff' },
   { name: 'Club Combo',      multipliers: [2, 2], bg: '#2C7873', textColor: '#ffffff' },
   { name: 'Lost Files',      multipliers: [3, 3], bg: '#5C4A6E', textColor: '#ffffff' },
+  { name: 'Guess the Score', multipliers: [2, 2], bg: '#BE185D', textColor: '#ffffff' },
 ];
 
 // ============================================================================
@@ -98,16 +102,15 @@ export default function FootballTrivia() {
   const [phase, setPhase] = useState('landing');
   const [teamNames, setTeamNames] = useState(['RED team', 'BLUE team']);
   const [winnerIdx, setWinnerIdx] = useState(null);
-  const [privilegeChoice, setPrivilegeChoice] = useState(null); // 'categories' | 'order'
   const [activeCategories, setActiveCategories] = useState(null);
-  const [startingTeam, setStartingTeam] = useState(null);
 
   const [questions, setQuestions] = useState({});
   const [questionsLoading, setQuestionsLoading] = useState(false);
   const [questionsError, setQuestionsError] = useState(null);
 
-  useEffect(() => {
-    if (phase !== 'play') return;
+  // Questions are loaded when the draft starts (so unavailable categories can be greyed out)
+  // and can be retried from the draft screen.
+  const loadQuestions = () => {
     setQuestionsLoading(true);
     setQuestionsError(null);
     fetch('/api/questions')
@@ -123,7 +126,7 @@ export default function FootballTrivia() {
         setQuestionsError(err.message);
         setQuestionsLoading(false);
       });
-  }, [phase]);
+  };
 
  const totalSlots = (activeCategories || []).reduce((sum, c) => sum + c.multipliers.length, 0);
 
@@ -177,7 +180,9 @@ export default function FootballTrivia() {
     setQuestionResolved(true);
     let pts = basePoints;
 
-    if (activePowerUp === 'x2' && basePoints > 0) {
+    // ×2 is always spent once the question is answered: right answer = double points,
+    // wrong answer or pass = 0 and the power-up is burned.
+    if (activePowerUp === 'x2') {
       pts = basePoints * 2;
       consumePowerUp('x2');
     }
@@ -222,9 +227,9 @@ export default function FootballTrivia() {
     setQuestionResolved(false);
     powerUpConsumedRef.current = false;
     setWinnerIdx(null);
-    setPrivilegeChoice(null);
     setActiveCategories(null);
-    setStartingTeam(null);
+    setQuestions({});
+    setQuestionsError(null);
     setPhase('landing');
   };
 
@@ -236,51 +241,39 @@ export default function FootballTrivia() {
   if (phase === 'landing') {
     return <LandingPage sharedStyle={sharedStyle} teamNames={teamNames} onStart={(names) => { setTeamNames(names); setPhase('coinflip'); }} />;
   }
-if (phase === 'coinflip') {
-  return (
-    <CoinFlip
-      sharedStyle={sharedStyle}
-      teamNames={teamNames}
-      onComplete={(idx) => {
-        setWinnerIdx(idx);
-        setPhase('privilegeChoice');
-      }}
-    />
-  );
-}
+  if (phase === 'coinflip') {
+    return (
+      <CoinFlip
+        sharedStyle={sharedStyle}
+        teamNames={teamNames}
+        onComplete={(idx) => {
+          setWinnerIdx(idx);
+          setPhase('draft');
+          loadQuestions();
+        }}
+      />
+    );
+  }
 
-if (phase === 'privilegeChoice') {
-  return (
-    <PrivilegeChoice
-      sharedStyle={sharedStyle}
-      winnerName={teamNames[winnerIdx]}
-      onChoose={(choice) => {
-        setPrivilegeChoice(choice);
-        setPhase(choice === 'categories' ? 'categoryPick' : 'orderPick');
-      }}
-    />
-  );
-}
-
-if (phase === 'categoryPick') {
-  const pickerIdx = privilegeChoice === 'categories' ? winnerIdx : (winnerIdx === 0 ? 1 : 0);
-  return <CategoryPicker sharedStyle={sharedStyle} pickerName={teamNames[pickerIdx]} bank={BANK_CATEGORIES}
-    onConfirm={(picked) => {
-      setActiveCategories([...FIXED_CATEGORIES, ...picked]);
-      if (startingTeam !== null) startGame(startingTeam);
-      else setPhase('orderPick');
-    }} />;
-}
-
-if (phase === 'orderPick') {
-  const pickerIdx = privilegeChoice === 'order' ? winnerIdx : (winnerIdx === 0 ? 1 : 0);
-  return <OrderPicker sharedStyle={sharedStyle} pickerName={teamNames[pickerIdx]}
-    onChoose={(startIdx) => {
-      setStartingTeam(startIdx);
-      if (activeCategories !== null) startGame(startIdx);
-      else setPhase('categoryPick');
-    }} />;
-}
+  if (phase === 'draft') {
+    const first = winnerIdx ?? 0;
+    return (
+      <CategoryDraft
+        sharedStyle={sharedStyle}
+        teamNames={teamNames}
+        firstPicker={first}
+        categories={ALL_CATEGORIES}
+        questions={questions}
+        loading={questionsLoading}
+        error={questionsError}
+        onRetry={loadQuestions}
+        onComplete={(picked) => {
+          setActiveCategories(picked);
+          startGame(first);
+        }}
+      />
+    );
+  }
 
   if (phase === 'finished') {
     const winnerIdx = scores[0] === scores[1] ? null : (scores[0] > scores[1] ? 0 : 1);
@@ -304,18 +297,6 @@ if (phase === 'orderPick') {
             Σειρά: {teamNames[turn]}
           </p>
         </div>
-
-        {questionsLoading && (
-          <div className="text-center py-3 body-font text-stone-500 flex items-center justify-center gap-2 text-sm">
-            <Sparkles size={16} className="animate-spin text-amber-500" />
-            Φόρτωση ερωτήσεων…
-          </div>
-        )}
-        {questionsError && (
-          <div className="bg-red-100 border-2 border-red-400 rounded-xl p-2 mb-2 text-center body-font text-red-700 text-xs">
-            ⚠️ Αδυναμία φόρτωσης: {questionsError}
-          </div>
-        )}
 
         {/* Category grid — 2 cols, bigger tap targets */}
         <div className="grid grid-cols-2 gap-2 mb-4">
@@ -548,6 +529,7 @@ function QuestionModal({ question, onFinish, onAward, onResolved, activePowerUp,
               case 'whomissing':  return <WhosMissingQuestion {...props} />;
               case 'higherlower': return <HigherLowerQuestion {...props} />;
               case 'top5':        return <Top5Question {...props} />;
+              case 'guessscore':  return <GuessTheScoreQuestion {...props} />;
               default:            return <TextQuestion {...props} />;
             }
           })()}
@@ -586,19 +568,28 @@ function AnswerInput({ question, onFinish, onAward, onResolved, activePowerUp })
     onAward(verdict.correct ? question.multiplier : 0);
   };
 
+  // Pass: no answer given, 0 points, no API call.
+  const pass = () => {
+    if (verifying || result) return;
+    inputRef.current?.blur();
+    setResult({ correct: false, passed: true, canonical: (question.a || '').split('|')[0], note: '' });
+    if (onResolved) onResolved();
+    onAward(0);
+  };
+
   if (result) {
     return (
       <div className={`rounded-xl p-4 ${result.correct ? 'bg-green-100 border-2 border-green-600' : 'bg-red-100 border-2 border-red-600'}`}>
         <div className="flex items-center gap-2 mb-2">
           {result.correct
             ? <><Check size={28} className="text-green-700" /><span className="handwritten text-2xl text-green-700 font-bold">Σωστά!</span></>
-            : <><X size={28} className="text-red-700" /><span className="handwritten text-2xl text-red-700 font-bold">Λάθος</span></>
+            : <><X size={28} className="text-red-700" /><span className="handwritten text-2xl text-red-700 font-bold">{result.passed ? 'Πάσο' : 'Λάθος'}</span></>
           }
         </div>
         {!result.correct && result.canonical && (
           <p className="body-font text-stone-600 text-sm mb-1">Σωστή: <strong>{result.canonical}</strong></p>
         )}
-        <p className="body-font text-stone-700 text-sm">{result.note}</p>
+        {result.note && <p className="body-font text-stone-700 text-sm">{result.note}</p>}
         <button onClick={onFinish} className="body-font mt-3 w-full bg-stone-800 text-white py-3 rounded-xl min-h-[48px] active:bg-stone-700">
           Σειρά επόμενης ομάδας →
         </button>
@@ -627,6 +618,13 @@ function AnswerInput({ question, onFinish, onAward, onResolved, activePowerUp })
           ? <><Sparkles size={20} className="animate-spin" /> Ελέγχει…</>
           : 'Υποβολή απάντησης'
         }
+      </button>
+      <button
+        onClick={pass}
+        disabled={verifying}
+        className="body-font w-full mt-2 bg-white border-2 border-stone-300 text-stone-600 py-2.5 rounded-xl text-base active:bg-stone-100 disabled:opacity-50 transition min-h-[44px]"
+      >
+        Πάσο
       </button>
     </>
   );
@@ -771,6 +769,13 @@ function WhosMissingQuestion({ question, onAward, onSkip, multiplier, activePowe
     setVerifying(false);
   }
 
+  function handlePass() {
+    if (verifying || result) return;
+    inputRef.current?.blur();
+    setResult('pass');
+    onAward(0);
+  }
+
   return (
     <div className="space-y-3">
       <p className="text-center font-bold text-lg text-stone-800 body-font">{question.question}</p>
@@ -806,6 +811,15 @@ function WhosMissingQuestion({ question, onAward, onSkip, multiplier, activePowe
         </div>
       )}
 
+      {!result && (
+        <button
+          onClick={handlePass}
+          disabled={verifying}
+          className="w-full bg-white border-2 border-stone-300 text-stone-600 py-2.5 rounded-lg active:bg-stone-100 disabled:opacity-50 min-h-[44px] body-font">
+          Πάσο
+        </button>
+      )}
+
       {result === 'correct' && (
         <div className="bg-green-100 border border-green-400 rounded-lg p-3 text-center">
           <p className="text-green-700 font-bold body-font">✓ Σωστό!</p>
@@ -815,9 +829,9 @@ function WhosMissingQuestion({ question, onAward, onSkip, multiplier, activePowe
         </div>
       )}
 
-      {result === 'wrong' && (
+      {(result === 'wrong' || result === 'pass') && (
         <div className="bg-red-100 border border-red-400 rounded-lg p-3 text-center">
-          <p className="text-red-700 font-bold body-font">✗ Λάθος!</p>
+          <p className="text-red-700 font-bold body-font">{result === 'pass' ? 'Πάσο' : '✗ Λάθος!'}</p>
           <p className="text-sm text-gray-600 body-font">Σωστό: {question.answer.split('|')[0]}</p>
           <button onClick={onSkip} className="mt-2 bg-stone-700 text-white px-6 py-2.5 rounded-lg font-bold min-h-[44px] body-font">
             Επόμενο →
@@ -912,6 +926,14 @@ function Top5Question({ question, multiplier, onAward, onFinish }) {
   }
 
   function handleStop() { setShowStopDialog(false); setDone(true); onAward(1); }
+  // Pass ends the round with 0 points and reveals the rest.
+  function handlePass() {
+    if (done || verifying) return;
+    inputRef.current?.blur();
+    setShowStopDialog(false);
+    setDone(true);
+    onAward(0);
+  }
   function handleContinue() { setShowStopDialog(false); }
 
   const lastWrong = wrongAnswers[wrongAnswers.length - 1];
@@ -984,6 +1006,13 @@ function Top5Question({ question, multiplier, onAward, onFinish }) {
             {verifying ? '...' : 'OK'}
           </button>
         </div>
+      )}
+
+      {!done && !showStopDialog && (
+        <button onClick={handlePass} disabled={verifying}
+          className="body-font w-full bg-white border-2 border-stone-300 text-stone-600 py-2.5 rounded-lg active:bg-stone-100 disabled:opacity-50 min-h-[44px]">
+          Πάσο
+        </button>
       )}
 
       {done && (
@@ -1330,79 +1359,269 @@ function CoinFlip({ sharedStyle, teamNames, onComplete }) {
   );
 }
 
-function PrivilegeChoice({ sharedStyle, winnerName, onChoose }) {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-amber-50 to-orange-50 px-4">
-      <style>{sharedStyle}</style>
-      <div className="max-w-sm w-full text-center space-y-4">
-        <h2 className="handwritten text-3xl text-stone-800 font-bold">{winnerName} κέρδισε!</h2>
-        <p className="body-font text-stone-600">Διάλεξε τι θα κρατήσεις:</p>
-        <button onClick={() => onChoose('categories')}
-          className="w-full bg-purple-700 text-white py-4 rounded-xl font-bold body-font text-lg card-shadow">
-          Δομώ το παιχνίδι
-        </button>
-        <button onClick={() => onChoose('order')}
-          className="w-full bg-blue-700 text-white py-4 rounded-xl font-bold body-font text-lg card-shadow">
-          Διαλέγω σειρά
-        </button>
-      </div>
-    </div>
-  );
-}
+// ============================================================================
+// CATEGORY DRAFT — winner of the coin flip picks first, then teams alternate
+// until DRAFT_SIZE categories are chosen. Tap a category, then confirm.
+// ============================================================================
+function CategoryDraft({ sharedStyle, teamNames, firstPicker, categories, questions, loading, error, onRetry, onComplete }) {
+  const [picks, setPicks] = useState([]);       // [{ name, team }]
+  const [selected, setSelected] = useState(null);
 
-function OrderPicker({ sharedStyle, pickerName, onChoose }) {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-amber-50 to-orange-50 px-4">
-      <style>{sharedStyle}</style>
-      <div className="max-w-sm w-full text-center space-y-4">
-        <h2 className="handwritten text-3xl text-stone-800 font-bold">{pickerName}</h2>
-        <p className="body-font text-stone-600">Διάλεξε σειρά:</p>
-        <button onClick={() => onChoose(0)} className="w-full bg-red-600 text-white py-4 rounded-xl font-bold body-font text-lg card-shadow">
-          Παίζω πρώτος/η
-        </button>
-        <button onClick={() => onChoose(1)} className="w-full bg-blue-700 text-white py-4 rounded-xl font-bold body-font text-lg card-shadow">
-          Παίζει πρώτος/η ο αντίπαλος
-        </button>
-      </div>
-    </div>
-  );
-}
+  const loaded = !loading && !error && Object.keys(questions).length > 0;
+  const isAvailable = (cat) => loaded && (questions[cat.name] || []).length >= 2;
+  const isPicked = (cat) => picks.some((p) => p.name === cat.name);
 
-function CategoryPicker({ sharedStyle, pickerName, bank, onConfirm }) {
-  const [selected, setSelected] = useState([]);
-  const toggle = (cat) => {
-    setSelected((prev) =>
-      prev.includes(cat.name) ? prev.filter((n) => n !== cat.name)
-      : prev.length < 2 ? [...prev, cat.name] : prev
-    );
+  const full = picks.length >= DRAFT_SIZE;
+  const remainingAvailable = categories.filter((c) => isAvailable(c) && !isPicked(c)).length;
+  // If there are not enough categories with questions, let the teams start with what they have.
+  const canStart = full || (loaded && remainingAvailable === 0 && picks.length > 0);
+
+  const currentTeam = (firstPicker + picks.length) % 2;
+  const teamBorder = (team) => (team === 0 ? '#dc2626' : '#1d4ed8');
+
+  const confirmPick = () => {
+    if (!selected || full) return;
+    setPicks((prev) => [...prev, { name: selected, team: currentTeam }]);
+    setSelected(null);
   };
+
+  const start = () => {
+    onComplete(picks.map((p) => categories.find((c) => c.name === p.name)));
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-50 px-4 py-6">
+    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-50 px-4 py-6 safe-bottom" style={{ fontFamily: "'Patrick Hand', cursive" }}>
       <style>{sharedStyle}</style>
-      <div className="max-w-sm mx-auto space-y-4">
-        <h2 className="handwritten text-3xl text-stone-800 font-bold text-center">{pickerName}</h2>
-        <p className="body-font text-stone-600 text-center">Διάλεξε 2 κατηγορίες ({selected.length}/2)</p>
+      <div className="max-w-md mx-auto space-y-4">
+        <div className="text-center">
+          <h2 className="handwritten text-3xl text-stone-800 font-bold">Διάλεξε κατηγορίες</h2>
+          {!canStart ? (
+            <p className={`handwritten text-2xl font-bold ${currentTeam === 0 ? 'text-red-600' : 'text-blue-700'}`}>
+              {currentTeam === 0 ? '🔴' : '🔵'} {teamNames[currentTeam]} διαλέγει
+            </p>
+          ) : (
+            <p className="handwritten text-2xl font-bold text-green-700">Οι κατηγορίες είναι έτοιμες!</p>
+          )}
+          <p className="body-font text-stone-500 text-sm">
+            {picks.length}/{DRAFT_SIZE} · {teamNames[firstPicker]} διαλέγει πρώτος και παίζει πρώτος
+          </p>
+        </div>
+
+        {loading && (
+          <div className="text-center py-2 body-font text-stone-500 flex items-center justify-center gap-2 text-sm">
+            <Sparkles size={16} className="animate-spin text-amber-500" />
+            Φόρτωση ερωτήσεων…
+          </div>
+        )}
+        {error && (
+          <div className="bg-red-100 border-2 border-red-400 rounded-xl p-3 text-center body-font text-red-700 text-sm space-y-2">
+            <p>⚠️ Αδυναμία φόρτωσης: {error}</p>
+            <button onClick={onRetry} className="bg-stone-800 text-white px-4 py-2 rounded-lg min-h-[44px]">Δοκίμασε ξανά</button>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-2">
-          {bank.map((cat) => {
-            const isSel = selected.includes(cat.name);
+          {categories.map((cat) => {
+            const pick = picks.find((p) => p.name === cat.name);
+            const available = isAvailable(cat);
+            const isSel = selected === cat.name;
+            const disabled = !!pick || !available || full;
             return (
-              <button key={cat.name} onClick={() => toggle(cat)}
-                className="rounded-xl p-3 font-bold body-font text-sm card-shadow border-4"
-                style={{ backgroundColor: cat.bg, color: cat.textColor, borderColor: isSel ? '#1c1917' : 'transparent', opacity: isSel ? 1 : 0.55 }}>
-                {cat.name}
+              <button
+                key={cat.name}
+                onClick={() => !disabled && setSelected(isSel ? null : cat.name)}
+                disabled={disabled}
+                className="rounded-xl p-3 font-bold body-font text-sm card-shadow border-4 min-h-[64px] flex flex-col items-center justify-center gap-0.5"
+                style={{
+                  backgroundColor: cat.bg,
+                  color: cat.textColor,
+                  borderColor: pick ? teamBorder(pick.team) : isSel ? '#1c1917' : 'transparent',
+                  opacity: pick ? 0.85 : !available ? 0.3 : isSel ? 1 : 0.7,
+                  cursor: disabled ? 'not-allowed' : 'pointer',
+                }}
+              >
+                <span>{cat.name}</span>
+                {pick && <span className="text-xs">{pick.team === 0 ? '🔴' : '🔵'} {teamNames[pick.team]}</span>}
+                {!pick && loaded && !available && <span className="text-xs">χωρίς ερωτήσεις</span>}
               </button>
             );
           })}
         </div>
-        <button disabled={selected.length !== 2}
-          onClick={() => onConfirm(bank.filter((c) => selected.includes(c.name)))}
-          className="w-full bg-stone-800 text-white py-4 rounded-xl font-bold body-font text-lg disabled:opacity-40">
-          Επιβεβαίωση
-        </button>
+
+        {!canStart && (
+          <button
+            disabled={!selected}
+            onClick={confirmPick}
+            className="w-full bg-stone-800 text-white py-4 rounded-xl font-bold body-font text-lg disabled:opacity-40 min-h-[56px]"
+          >
+            {selected ? `Επιλογή: ${selected}` : 'Διάλεξε μια κατηγορία'}
+          </button>
+        )}
+
+        {canStart && (
+          <button
+            onClick={start}
+            className="w-full bg-green-600 text-white py-4 rounded-xl font-bold body-font text-lg active:bg-green-700 min-h-[56px]"
+          >
+            Ξεκινάμε! Πρώτος παίζει: {teamNames[firstPicker]} →
+          </button>
+        )}
       </div>
     </div>
   );
 }
+
+// ============================================================================
+// GUESS THE SCORE
+// Sheet columns: question (the match), answer (score, same order as the teams), scorers (a|b|c)
+//   correct score            → 1 point
+//   correct score + scorers  → 2 points   (all scorers named, none extra)
+// ============================================================================
+async function checkScorers(expected, given, matchLabel) {
+  if (given.length !== expected.length) return false;
+  const remaining = [...expected];
+  for (const name of given) {
+    let idx = remaining.findIndex((e) => normalize(e) === normalize(name));
+    if (idx === -1 && remaining.length > 0) {
+      try {
+        const res = await fetch('/api/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            question: `Football match: ${matchLabel}. The player names one of the goalscorers.`,
+            sheetAnswer: remaining.join('|'),
+            userAnswer: name,
+            category: 'Guess the Score',
+          }),
+        });
+        const data = await res.json();
+        if (data.correct) {
+          idx = remaining.findIndex((e) => normalize(e) === normalize(data.canonical || ''));
+        }
+      } catch { /* treated as wrong below */ }
+    }
+    if (idx === -1) return false;
+    remaining.splice(idx, 1);
+  }
+  return remaining.length === 0;
+}
+
+function GuessTheScoreQuestion({ question, onFinish, onAward, activePowerUp }) {
+  const [score, setScore] = useState('');
+  const [scorers, setScorers] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const [result, setResult] = useState(null);   // { points, passed }
+  const scoreRef = useRef(null);
+  const scorersRef = useRef(null);
+
+  const expected = (question.scorers || '').split('|').map((x) => x.trim()).filter(Boolean);
+
+  useEffect(() => {
+    if (!result && !activePowerUp && scoreRef.current) {
+      const timer = setTimeout(() => scoreRef.current?.focus(), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [result, activePowerUp]);
+
+  async function submit() {
+    if (verifying || result || !score.trim()) return;
+    scoreRef.current?.blur();
+    scorersRef.current?.blur();
+    setVerifying(true);
+
+    let points = 0;
+    if (sameScore(score, question.answer)) {
+      const scorersOk = await checkScorers(expected, splitNames(scorers), question.question);
+      points = scorersOk ? 2 : 1;
+    }
+    setResult({ points, passed: false });
+    setVerifying(false);
+    onAward(points);
+  }
+
+  function pass() {
+    if (verifying || result) return;
+    scoreRef.current?.blur();
+    scorersRef.current?.blur();
+    setResult({ points: 0, passed: true });
+    onAward(0);
+  }
+
+  const title = result?.passed ? 'Πάσο'
+    : result?.points === 2 ? 'Σκορ και σκόρερ σωστά!'
+    : result?.points === 1 ? 'Σωστό σκορ!'
+    : 'Λάθος';
+
+  return (
+    <>
+      <div className="bg-stone-800 rounded-xl py-3 px-4 text-center mb-4">
+        <p className="body-font text-stone-300 text-xs uppercase tracking-widest mb-1">Ποιο ήταν το σκορ;</p>
+        <p className="handwritten text-2xl text-white font-bold leading-snug">{question.q}</p>
+      </div>
+
+      {result ? (
+        <div className={`rounded-xl p-4 ${result.points > 0 ? 'bg-green-100 border-2 border-green-600' : 'bg-red-100 border-2 border-red-600'}`}>
+          <div className="flex items-center gap-2 mb-2">
+            {result.points > 0
+              ? <Check size={28} className="text-green-700" />
+              : <X size={28} className="text-red-700" />}
+            <span className={`handwritten text-2xl font-bold ${result.points > 0 ? 'text-green-700' : 'text-red-700'}`}>{title}</span>
+          </div>
+          {result.points === 1 && (
+            <p className="body-font text-stone-700 text-sm mb-1">Οι σκόρερ δεν ήταν όλοι σωστοί — 1 πόντος.</p>
+          )}
+          <p className="body-font text-stone-600 text-sm">Σκορ: <strong>{question.a}</strong></p>
+          <p className="body-font text-stone-600 text-sm">Σκόρερ: <strong>{expected.length ? expected.join(', ') : 'κανένας'}</strong></p>
+          <button onClick={onFinish} className="body-font mt-3 w-full bg-stone-800 text-white py-3 rounded-xl min-h-[48px] active:bg-stone-700">
+            Σειρά επόμενης ομάδας →
+          </button>
+        </div>
+      ) : (
+        <>
+          <input
+            ref={scoreRef}
+            type="text"
+            inputMode="text"
+            value={score}
+            onChange={(e) => setScore(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && scorersRef.current?.focus()}
+            disabled={verifying}
+            placeholder="Σκορ (π.χ. 2-1)"
+            className="body-font w-full border-2 border-stone-800 rounded-xl px-4 py-3 text-lg text-center mb-3 bg-white focus:outline-none focus:ring-4 focus:ring-amber-300"
+          />
+          <input
+            ref={scorersRef}
+            type="text"
+            value={scorers}
+            onChange={(e) => setScorers(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && submit()}
+            disabled={verifying}
+            placeholder="Σκόρερ (χώρισέ τους με κόμμα)"
+            className="body-font w-full border-2 border-stone-800 rounded-xl px-4 py-3 text-lg mb-1 bg-white focus:outline-none focus:ring-4 focus:ring-amber-300"
+          />
+          <p className="body-font text-stone-500 text-xs text-center mb-3">Σκορ = 1 πόντος · Σκορ + σκόρερ = 2 πόντοι</p>
+          <button
+            onClick={submit}
+            disabled={verifying || !score.trim()}
+            className="body-font w-full bg-stone-800 text-white py-3 rounded-xl text-lg flex items-center justify-center gap-2 active:bg-stone-700 disabled:opacity-50 transition min-h-[52px]"
+          >
+            {verifying
+              ? <><Sparkles size={20} className="animate-spin" /> Ελέγχει…</>
+              : 'Υποβολή απάντησης'}
+          </button>
+          <button
+            onClick={pass}
+            disabled={verifying}
+            className="body-font w-full mt-2 bg-white border-2 border-stone-300 text-stone-600 py-2.5 rounded-xl text-base active:bg-stone-100 disabled:opacity-50 transition min-h-[44px]"
+          >
+            Πάσο
+          </button>
+        </>
+      )}
+    </>
+  );
+}
+
 // ============================================================================
 // FINISHED SCREEN
 // ============================================================================

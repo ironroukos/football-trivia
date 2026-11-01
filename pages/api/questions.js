@@ -6,11 +6,13 @@ const CATEGORY_MULTIPLIERS = {
   'Logo Quiz': 1,
   'Retro Transfers': 2,
   'Player ID': 2,
+  'Manager ID': 2,
   'Higher/Lower': 1,
   "Who's Missing": 3,
   'Top 5': 3,
   'Club Combo': 2,
   'Lost Files': 2,
+  'Guess the Score': 2,
 };
 
 const CATEGORY_TYPES = {
@@ -19,11 +21,13 @@ const CATEGORY_TYPES = {
   'Logo Quiz':        'logo',
   'Retro Transfers':  'transfer',
   'Player ID':        'imageText',
+  'Manager ID':       'imageText',
   'Higher/Lower':     'higherlower',
   "Who's Missing":    'whomissing',
   'Top 5':            'top5',
   'Club Combo':        'text',
   'Lost Files':        'imageText',
+  'Guess the Score':   'guessscore',
 };
 
 const QUESTIONS_PER_CATEGORY = 2;
@@ -34,11 +38,13 @@ const CATEGORY_ENVS = [
   { name: 'Logo Quiz',        url: process.env.SHEET_Logo_Quiz },
   { name: 'Retro Transfers',  url: process.env.SHEET_Retro_Transfers },
   { name: 'Player ID',        url: process.env.SHEET_Player_ID },
+  { name: 'Manager ID',       url: process.env.SHEET_Manager_ID },
   { name: 'Higher/Lower',     url: process.env.SHEET_Higher_Lower },
   { name: "Who's Missing",    url: process.env.SHEET_Whos_Missing },
   { name: 'Top 5',            url: process.env.SHEET_Top_5 },
   { name: 'Club Combo',       url: process.env.SHEET_Club_Combo },
   { name: 'Lost Files',       url: process.env.SHEET_Lost_Files },
+  { name: 'Guess the Score',  url: process.env.SHEET_Guess_the_Score },
 ];
 
 function shuffle(arr) {
@@ -125,6 +131,18 @@ function buildQuestion(row, name, slotIndex) {
         question:   row.question      || '',
         answer:     row.answer        || '',
         image_url:  row['img_url']    || null,
+      };
+
+    case 'guessscore':
+      return {
+        type,
+        category: name,
+        multiplier,
+        slotIndex,
+        question:  row.question || '',
+        answer:    row.answer   || '',
+        scorers:   row.scorers  || '',
+        image_url: null,
       };
 
     case 'higherlower':
